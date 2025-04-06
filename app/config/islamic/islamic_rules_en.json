@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "last_updated": "2024-03-21",
+  "categories": [
+    "core_beliefs",
+    "worship",
+    "ethics",
+    "morality",
+    "social_conduct",
+    "forbidden"
+  ],
+  "rules": [
+    {
+      "id": "tawhid",
+      "name": "Oneness of Allah",
+      "category": "core_beliefs",
+      "description": "The fundamental belief in the absolute oneness of Allah (monotheism)"
+    },
+    {
+      "id": "prophethood",
+      "name": "Belief in Prophets",
+      "category": "core_beliefs",
+      "description": "Respect and acknowledgment of all prophets, with Muhammad (peace be upon him) as the final prophet"
+    },
+    {
+      "id": "five_pillars",
+      "name": "Five Pillars of Islam",
+      "category": "worship",
+      "description": "The five fundamental practices: Declaration of Faith, Prayer, Charity, Fasting, and Pilgrimage"
+    },
+    {
+      "id": "halal_conduct",
+      "name": "Halal Practices",
+      "category": "ethics",
+      "description": "Following permissible practices and avoiding prohibited ones in daily life"
+    },
+    {
+      "id": "honesty",
+      "name": "Truthfulness",
+      "category": "morality",
+      "description": "Maintaining honesty and truthfulness in all dealings and communications"
+    },
+    {
+      "id": "respect_others",
+      "name": "Respect for Others",
+      "category": "social_conduct",
+      "description": "Treating all people with respect regardless of their faith or background"
+    },
+    {
+      "id": "family_values",
+      "name": "Family Values",
+      "category": "ethics",
+      "description": "Upholding family ties and fulfilling family responsibilities"
+    },
+    {
+      "id": "modesty",
+      "name": "Modesty",
+      "category": "morality",
+      "description": "Maintaining modesty in behavior, speech, and appearance"
+    },
+    {
+      "id": "justice",
+      "name": "Justice",
+      "category": "ethics",
+      "description": "Promoting fairness and justice in all dealings"
+    },
+    {
+      "id": "kindness",
+      "name": "Kindness and Mercy",
+      "category": "morality",
+      "description": "Showing kindness and mercy to all creation"
+    },
+    {
+      "id": "knowledge",
+      "name": "Seeking Knowledge",
+      "category": "ethics",
+      "description": "Encouraging the pursuit of beneficial knowledge"
+    },
+    {
+      "id": "avoid_harm",
+      "name": "Prevention of Harm",
+      "category": "forbidden",
+      "description": "Avoiding causing harm to oneself or others"
+    },
+    {
+      "id": "respect_life",
+      "name": "Sanctity of Life",
+      "category": "core_beliefs",
+      "description": "Respecting the sanctity of human life"
+    },
+    {
+      "id": "community",
+      "name": "Community Relations",
+      "category": "social_conduct",
+      "description": "Maintaining good relations with neighbors and community members"
+    },
+    {
+      "id": "environmental",
+      "name": "Environmental Care",
+      "category": "ethics",
+      "description": "Being responsible stewards of the environment"
+    }
+  ],
+  "guidelines": [
+    "Responses should be respectful and considerate of Islamic values",
+    "Avoid promoting or encouraging prohibited practices",
+    "Maintain balanced and moderate perspectives",
+    "Respect diverse interpretations within Islamic scholarship",
+    "Promote peace, harmony, and understanding"
+  ],
+  "forbidden_topics": [
+    "Disrespect towards religious figures or symbols",
+    "Promotion of extremism or violence",
+    "Mockery of religious beliefs",
+    "Inappropriate or explicit content",
+    "Discrimination or hate speech"
+  ]
+} 

@@ -1,6 +1,23 @@
-# Model Firewall (MAF)
+# MAF (LLM Model Application Firewall)
 
-A security system designed to protect AI models from prompt injection attacks and ensure safe data handling.
+A comprehensive security framework for LLM applications, providing content filtering, compliance checking, and prompt safety analysis. MAF acts as a protective layer between your application and LLM services, ensuring safe and compliant interactions.
+
+## Core Functions
+
+1. **Content Security**
+   - PII (Personal Identifiable Information) Detection and Masking
+   - Prompt Injection Detection
+   - Input/Output Sanitization
+
+2. **Compliance Checking**
+   - Islamic Content Compliance
+   - Cultural Sensitivity Analysis
+   - Content Policy Enforcement
+
+3. **LLM Safety**
+   - Prompt Safety Verification
+   - Response Validation
+   - Model Output Filtering
 
 ## Features
 
@@ -81,4 +98,46 @@ Once the application is running, visit:
 
 4. **Logging**
    - Comprehensive logging of all security-related events
-   - File-based storage for audit trails 
+   - File-based storage for audit trails
+
+## Running the Application
+
+1. Start the Backend Server:
+```bash
+./server.sh
+# or
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+2. Start the Frontend Application:
+```bash
+cd frontend
+streamlit run main.py
+```
+
+## Frontend Features
+
+1. **Prompt Safety Checking**
+   - Real-time prompt analysis
+   - Safety score visualization
+   - Detailed threat analysis
+   - Model selection options
+
+2. **PII Detection Interface**
+   - Interactive text analysis
+   - PII highlighting and masking
+   - Rule configuration management
+   - Detection statistics
+
+3. **Islamic Compliance System**
+   - Comparative analysis view
+   - Rule management interface
+   - Multi-language support
+   - Compliance testing tools
+
+## Frontend Access
+
+- Main application: http://localhost:8501
+- Prompt checking: http://localhost:8501/prompt_checking
+- PII filtering: http://localhost:8501/pii_filtering
+- Islamic rules: http://localhost:8501/islamic_rules 

@@ -22,11 +22,15 @@ def render_intro_tab():
     This system helps ensure that LLM responses comply with Islamic principles, Brunei regulations, 
     and data security requirements through customized prompts and rules.
     
-    ### Key Features
-    1. **Religious Compliance**
+    ### Core Capabilities
+    1. **Islamic Compliance**
        - Ensures responses align with Islamic values and principles
        - Filters inappropriate or prohibited content
        - Maintains cultural sensitivity
+       - **Halal Certification Check**
+         - Validates Halal certification status
+         - Verifies product and service compliance
+         - Monitors Halal supply chain integrity
     
     2. **Data Security**
        - PII (Personal Identifiable Information) protection
@@ -43,6 +47,7 @@ def render_intro_tab():
     - Enhanced data protection
     - Legal compliance
     - Ethical content generation
+    - **Halal compliance verification**
     """)
 
 def render_config_tab():

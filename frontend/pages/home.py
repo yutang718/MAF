@@ -11,6 +11,11 @@ from pages.settings import render_settings_page  # 确保 settings.py 中有这�
 
 logger = get_logger("frontend.pages.home")
 
+def initialize_session_state():
+    """初始化 session state"""
+    if "page" not in st.session_state:
+        st.session_state.page = "Home"
+
 def render_introduction_tab():
     """渲染介绍标签页"""
     st.header("欢迎使用 EvydGuard")
@@ -143,137 +148,98 @@ def render_about_tab():
     """)
 
 def render_home_page():
-    if st.session_state.page == "Home":
-        render_home_content()
-    elif st.session_state.page == "Prompt Injection Detection":
-        render_prompt_analysis_page()
-    elif st.session_state.page == "PII Filtering":
-        render_pii_filtering_page()
-    elif st.session_state.page == "Islamic Rules":
-        render_islamic_rules_page()
-    elif st.session_state.page == "Settings":
-        render_settings_page()
-
-def render_home_content():
-    st.title("EvydGuard - AI Security Protection System")
+    """渲染主页"""
+    initialize_session_state()
     
-    # System Introduction
+    st.title("MAF - LLM Model Application Firewall")
+    
+    # 添加醒目的标语
     st.markdown("""
-    ### Comprehensive AI Security Solution
+    <div style='padding: 1em; background-color: #f0f7ff; border-radius: 10px; text-align: center'>
+        <h2>World's First Halal-Aware AI Protection System</h2>
+        <p>Ensuring AI interactions comply with Islamic principles and Halal requirements</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    EvydGuard is a professional AI security protection system that ensures the safety, 
-    compliance, and controllability of AI systems through multi-layered security 
-    detection and filtering mechanisms.
+    # 简短的系统介绍
+    st.markdown("""
+    > A comprehensive security solution for LLM applications, combining Halal compliance, 
+    > data protection, and prompt safety in one unified platform.
     """)
     
-    # Core Features Display with Navigation
-    st.header("Core Security Capabilities")
+    # 核心功能展示
+    st.header("Core Features")
     
     col1, col2, col3 = st.columns(3)
     
+    # 调整顺序，把 Islamic Compliance 放在第一位
     with col1:
         with st.container():
-            st.markdown("### 🛡️ Prompt Injection Detection")
+            st.markdown("### ✨ Islamic & Halal")
             st.markdown("""
-            - Real-time malicious injection detection
-            - Multiple high-performance models
-            - Deep threat analysis
-            - 99.9% accuracy rate
+            - Halal certification
+            - Shariah compliance
+            - Cultural awareness
             """)
-            if st.button("Open Prompt Detection"):
-                st.session_state.page = "Prompt Injection Detection"
+            if st.button("Try Islamic Rules"):
+                st.session_state.page = "Islamic Rules"
                 st.rerun()
     
     with col2:
         with st.container():
-            st.markdown("### 🔒 PII Data Filtering")
+            st.markdown("### 🛡️ Prompt Safety")
             st.markdown("""
-            - Automatic sensitive information detection
-            - Multi-language support
-            - Configurable rule system
-            - Real-time data masking
+            - Injection detection
+            - Input validation
+            - Response filtering
             """)
-            if st.button("Open PII Filtering"):
-                st.session_state.page = "PII Filtering"
+            if st.button("Try Prompt Detection"):
+                st.session_state.page = "Prompt Injection Detection"
                 st.rerun()
     
     with col3:
         with st.container():
-            st.markdown("### ✨ Islamic Compliance Check")
+            st.markdown("### 🔒 PII Protection")
             st.markdown("""
-            - Islamic teachings compliance
-            - Cultural sensitivity
-            - Automated content review
-            - Multi-language support
+            - Data masking
+            - Privacy compliance
+            - Real-time filtering
             """)
-            if st.button("Open Islamic Rules"):
-                st.session_state.page = "Islamic Rules"
+            if st.button("Try PII Filtering"):
+                st.session_state.page = "PII Filtering"
                 st.rerun()
 
-    # Technical Advantages
-    st.header("Technical Advantages")
+    # 关键指标
+    st.header("Performance")
     
-    st.markdown("""
-    #### 🚀 High-Performance Detection Engine
-    - Support for advanced language models
-    - Millisecond-level response time
-    - Batch and stream processing support
-    
-    #### 🎯 Precise Threat Identification
-    - Deep learning-based intelligent analysis
-    - Continuously updated threat database
-    - Adaptive detection strategies
-    
-    #### 🔐 Comprehensive Security Protection
-    - Multi-layer protection mechanism
-    - Real-time monitoring and alerts
-    - Detailed analysis reports
-    
-    #### 🌐 Flexible Deployment Options
-    - Cloud and on-premises deployment support
-    - Simple API integration
-    - Comprehensive documentation
-    """)
-    
-    # Performance Metrics
-    st.header("System Performance")
-    
-    metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+    metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
     
     with metrics_col1:
         st.metric(
-            label="Detection Accuracy",
-            value="99.9%",
-            delta="↑2.1%"
+            label="Halal Compliance",
+            value="100%",
+            delta="Certified"
         )
     
     with metrics_col2:
         st.metric(
-            label="Average Response Time",
+            label="Response Time",
             value="12ms",
             delta="↓5ms"
         )
     
     with metrics_col3:
         st.metric(
-            label="Daily Processing Volume",
+            label="Daily Requests",
             value="10M+",
             delta="↑1.2M"
         )
     
-    with metrics_col4:
-        st.metric(
-            label="False Positive Rate",
-            value="0.1%",
-            delta="↓0.2%"
-        )
-    
-    # Footer Information
+    # 简短的页脚
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center'>
-        <p>EvydGuard - Making AI Safer and More Reliable</p>
-        <p style='color: gray; font-size: 0.8em'>© 2024 Evyd. All rights reserved.</p>
+        <p>© 2024 MAF - Making AI Safe and Compliant</p>
     </div>
     """, unsafe_allow_html=True)
 

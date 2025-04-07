@@ -11,7 +11,7 @@ from core.logging import get_logger
 import uuid
 import pandas as pd
 
-logger = get_logger(__name__)
+logger = get_logger("frontend.pages.islamic_rules")
 
 def render_intro_tab():
     """Render introduction tab"""

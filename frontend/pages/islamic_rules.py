@@ -58,7 +58,7 @@ def render_config_tab():
         # 获取规则配置
         logger.info("Fetching Islamic rules from API...")
         rules_data = asyncio.run(get_islamic_rules())
-        logger.info(f"Received rules data: {rules_data}")
+        logger.debug(f"Received rules data: {rules_data}")
         
         if not rules_data:
             logger.warning("No rules data received from API")

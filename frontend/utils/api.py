@@ -180,7 +180,7 @@ async def get_islamic_rules(language: str = "en") -> Dict[str, Any]:
     try:
         logger.info(f"Calling Islamic rules API with language: {language}")
         response = await call_api(f'/islamic/rules?language={language}')
-        logger.info(f"Received API response: {response}")
+        logger.debug(f"Received API response: {response}")
         return response
     except Exception as e:
         logger.error(f"Error fetching Islamic rules: {str(e)}", exc_info=True)

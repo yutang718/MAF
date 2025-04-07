@@ -1,9 +1,9 @@
 import streamlit as st
 from pages.home import render_home_page
-from core.logging import setup_logging
+from core.logging import get_logger
 
 # Set up logging
-setup_logging()
+logger = get_logger(__name__)
 
 # Set page config (must be the first Streamlit command)
 st.set_page_config(

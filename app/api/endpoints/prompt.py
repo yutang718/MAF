@@ -7,6 +7,7 @@ from core.logging import get_logger
 from core.dependencies import get_services, Services
 from services.model_manager import ModelManager
 from core.config import settings
+import json
 
 router = APIRouter()
 logger = get_logger("api.endpoints.prompt")
@@ -114,7 +115,12 @@ async def detect_prompt(
                 detail="Text field is required"
             )
             
+        logger.info(f"User input for detection: {text}")
+        logger.info(f"Detection mode: {mode}")
+        
         result = await services.model_manager.detect(text=text, mode=mode)
+        logger.info("Starting API call for prompt detection")
+        logger.info(f"API response: {json.dumps(result, ensure_ascii=False)}")
         return result
         
     except Exception as e:

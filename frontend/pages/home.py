@@ -7,7 +7,6 @@ from core.logging import get_logger
 from pages.prompt_analysis import render_prompt_analysis_page
 from pages.pii_filtering import render_pii_filtering_page
 from pages.islamic_rules import render_islamic_rules_page
-from pages.settings import render_settings_page  # 确保 settings.py 中有这个函数
 
 logger = get_logger("frontend.pages.home")
 

@@ -12,6 +12,8 @@ import plotly.graph_objects as go
 from typing import Dict, Any
 from core.logging import get_logger
 import requests
+import json
+from datetime import datetime
 
 logger = get_logger("frontend.pages.prompt_analysis")
 
@@ -144,19 +146,34 @@ def render_detection_tab():
             st.warning("Please enter text for detection")
             return
 
+        # 记录用户输入
+        logger.info(f"User input for detection: {input_text}")
+        logger.info(f"Detection mode: {mode}")
+        
         mode_mapping = {
             "Basic Mode": "basic",
             "Detailed Mode": "detailed"
         }
 
-        # 直接使用导入的函数
-        result = asyncio.run(detect_prompt(
-            text=input_text,
-            mode=mode_mapping[mode]
-        ))
-        
-        if result:
-            display_detection_results(result, mode)
+        try:
+            # 记录API调用开始
+            logger.info("Starting API call for prompt detection")
+            
+            # 直接使用导入的函数
+            result = asyncio.run(detect_prompt(
+                text=input_text,
+                mode=mode_mapping[mode]
+            ))
+            
+            # 记录API响应
+            logger.info(f"API response: {json.dumps(result, ensure_ascii=False)}")
+            
+            if result:
+                display_detection_results(result, mode)
+                
+        except Exception as e:
+            logger.error(f"Error during detection: {str(e)}")
+            st.error(f"Error: {str(e)}")
 
 def display_detection_results(result: Dict[str, Any], mode: str):
     """显示检测结果"""
@@ -349,13 +366,23 @@ def render_examples_tab():
             
             with col2:
                 if run_button:
+                    # 记录示例测试
+                    logger.info(f"Running example test: {case['text']}")
+                    logger.info(f"Expected risk: {case['risk']}")
+                    
                     with st.spinner("Running detection..."):
                         try:
+                            # 记录API调用开始
+                            logger.info("Starting API call for example detection")
+                            
                             # 直接使用导入的函数
                             result = asyncio.run(detect_prompt(
                                 text=case['text'],
                                 mode="detailed"
                             ))
+                            
+                            # 记录API响应
+                            logger.info(f"API response for example: {json.dumps(result, ensure_ascii=False)}")
                             
                             if result:
                                 # Display risk level
@@ -386,6 +413,7 @@ def render_examples_tab():
                                             st.write(f"- {suggestion}")
                                 
                         except Exception as e:
+                            logger.error(f"Error during example detection: {str(e)}")
                             st.error(f"Detection failed: {str(e)}")
             
             st.markdown("---")
@@ -399,12 +427,21 @@ def render_examples_tab():
     )
     
     if custom_text and st.button("Start Detection", key="custom_test"):
+        # 记录自定义测试
+        logger.info(f"Running custom test: {custom_text}")
+        
         with st.spinner("Running detection..."):
             try:
+                # 记录API调用开始
+                logger.info("Starting API call for custom test")
+                
                 result = asyncio.run(detect_prompt(
                     text=custom_text,
                     mode="detailed"
                 ))
+                
+                # 记录API响应
+                logger.info(f"API response for custom test: {json.dumps(result, ensure_ascii=False)}")
                 
                 if result:
                     # Display risk level
@@ -435,6 +472,7 @@ def render_examples_tab():
                                 st.write(f"- {suggestion}")
                 
             except Exception as e:
+                logger.error(f"Error during custom test detection: {str(e)}")
                 st.error(f"Detection failed: {str(e)}")
 
 if __name__ == "__main__":

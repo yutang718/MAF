@@ -42,7 +42,7 @@ class ModelManager:
             "status": "initializing"
         }
         
-        logger.info(f"Initializing ModelManager with {len(self.available_models)} models")
+        logger.debug(f"Initializing ModelManager with {len(self.available_models)} models")
         
         # 直接调用预加载函数
         try:
@@ -155,14 +155,14 @@ class ModelManager:
     def preload_models(self) -> None:
         """预加载所有可用的模型"""
         try:
-            logger.info("Starting model preload...")
+            logger.debug("Starting model preload...")
             
             loaded_models = []
             failed_models = []
             
             for model_id, description in self.available_models.items():
                 try:
-                    logger.info(f"Loading model: {model_id}")
+                    logger.debug(f"Loading model: {model_id}")
                     
                     # 加载tokenizer
                     self.tokenizers[model_id] = AutoTokenizer.from_pretrained(model_id)
@@ -174,7 +174,7 @@ class ModelManager:
                     self.models[model_id] = model
                     
                     loaded_models.append(model_id)
-                    logger.info(f"Successfully loaded model and tokenizer: {model_id}")
+                    logger.debug(f"Successfully loaded model and tokenizer: {model_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to load model {model_id}: {str(e)}")

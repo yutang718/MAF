@@ -10,7 +10,7 @@ from config.settings import get_api_url
 logger = get_logger("utils.api")
 
 # API 基础配置
-BASE_URL = "http://localhost:8000/api/v1"  # 添加 /api/v1 前缀
+BASE_URL = "http://localhost:8001/api/v1"  # 更新端口为 8001
 
 async def handle_response(response: aiohttp.ClientResponse) -> Dict[str, Any]:
     """处理API响应"""

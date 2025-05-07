@@ -37,7 +37,7 @@ async def get_rules(
 ) -> Dict[str, List[Dict[str, Any]]]:
     """获取所有PII规则"""
     try:
-        rules = services.pii_detector.get_rules()
+        rules = services.pii_detector.rules  # 直接访问 rules 属性
         logger.info(f"API returning {len(rules)} PII rules")
         return {"rules": rules}
     except Exception as e:

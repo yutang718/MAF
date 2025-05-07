@@ -12,7 +12,6 @@ class PIIRule(BaseModel):
     description: Optional[str] = Field(default="")
     category: Optional[str] = Field(default="general")
     country: Optional[str] = Field(default="international")
-    language: Optional[str] = Field(default="en")
     enabled: Optional[bool] = Field(default=True)
     masking_method: Optional[str] = Field(default="mask")
 

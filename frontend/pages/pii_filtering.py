@@ -47,7 +47,6 @@ TEXTS = {
         "title": "PII Detection Testing",
         "options": {
             "title": "Test Options",
-            "detection_language": "Detection Language",
             "sensitivity": "Detection Sensitivity",
             "confidence": "Confidence Threshold",
             "masking_style": "Masking Style"
@@ -87,9 +86,7 @@ TEXTS = {
         "load_test": "Load to Test",
         "common_types": "Common PII Types",
         "regions": {
-            "brunei": "Brunei",
-            "malaysia": "Malaysia",
-            "singapore": "Singapore"
+            "brunei": "Brunei"
         }
     }
 }
@@ -270,92 +267,60 @@ def render_config_tab():
                 use_container_width=True
             )
             
-            # 添加新规则的表单
-            if st.button("Add New Rule"):
-                with st.form("new_rule_form"):
-                    # 完整的规则字段
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        name = st.text_input("Rule Name", key="rule_name")
-                        rule_type = st.selectbox(
-                            "Rule Type",
-                            options=["regex", "dictionary", "pattern"],
-                            key="rule_type"
-                        )
-                        pattern = st.text_area(
-                            "Pattern/Content",
-                            help="Regex pattern or dictionary content",
-                            key="rule_pattern"
-                        )
-                        description = st.text_area(
-                            "Description",
-                            key="rule_description"
-                        )
-                        
-                    with col2:
-                        category = st.selectbox(
-                            "Category",
-                            options=["general", "financial", "medical", "contact", "id"],
-                            key="rule_category"
-                        )
-                        country = st.selectbox(
-                            "Country",
-                            options=["international", "brunei", "malaysia", "singapore"],
-                            key="rule_country"
-                        )
-                        language = st.selectbox(
-                            "Language",
-                            options=["en", "ms", "zh"],
-                            key="rule_language"
-                        )
-                        masking_method = st.selectbox(
-                            "Masking Method",
-                            options=["mask", "hash", "redact"],
-                            key="rule_masking"
-                        )
-                        enabled = st.checkbox("Enabled", value=True, key="rule_enabled")
+            # 添加新规则表单
+            with st.expander("Add New Rule"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    rule_id = st.text_input("Rule ID", key="rule_id")
+                    rule_name = st.text_input("Rule Name", key="rule_name")
+                    rule_type = st.text_input("Rule Type", key="rule_type")
+                    pattern = st.text_input("Pattern", key="rule_pattern")
+                    description = st.text_area("Description", key="rule_description")
                     
-                    if st.form_submit_button("Save Rule"):
-                        try:
-                            new_rule = {
-                                "id": str(uuid.uuid4()),
-                                "name": name,
-                                "type": rule_type,
-                                "pattern": pattern,
-                                "description": description,
-                                "category": category,
-                                "country": country,
-                                "language": language,
-                                "masking_method": masking_method,
-                                "enabled": enabled
-                            }
-                            
-                            # 更新规则
-                            response = asyncio.run(update_pii_rule(new_rule))
-                            if response:
-                                st.success("Rule added successfully!")
-                                st.experimental_rerun()
-                            
-                        except Exception as e:
-                            st.error(f"Error adding rule: {str(e)}")
-            
-            # 添加保存和刷新按钮
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("💾 Save Changes"):
+                with col2:
+                    category = st.selectbox(
+                        "Category",
+                        options=["general", "financial", "medical", "contact", "id"],
+                        key="rule_category"
+                    )
+                    country = st.selectbox(
+                        "Country",
+                        options=["BN"],
+                        key="rule_country"
+                    )
+                    masking_method = st.selectbox(
+                        "Masking Method",
+                        options=["mask", "hash", "redact"],
+                        key="rule_masking"
+                    )
+                    enabled = st.checkbox("Enabled", value=True, key="rule_enabled")
+                
+                if st.button("Add Rule"):
+                    new_rule = {
+                        "id": rule_id,
+                        "name": rule_name,
+                        "type": rule_type,
+                        "pattern": pattern,
+                        "description": description,
+                        "category": category,
+                        "country": country,
+                        "enabled": enabled,
+                        "masking_method": masking_method
+                    }
+                    
                     try:
-                        # 将 DataFrame 转换为规则列表
-                        rules_to_update = [
-                            prepare_rule_for_update(row.to_dict())
-                            for _, row in rules.iterrows()
-                        ]
-                        
-                        # 发送更新请求
-                        response = asyncio.run(update_pii_rules(rules_to_update))
-                        st.success("Rules updated successfully!")
-                        
+                        response = asyncio.run(update_pii_rule(new_rule))
+                        if response:
+                            st.success("Rule added successfully")
+                            st.experimental_rerun()
+                        else:
+                            st.error("Failed to add rule")
                     except Exception as e:
-                        st.error(f"Error updating rules: {str(e)}")
+                        st.error(f"Error adding rule: {str(e)}")
+            
+            # 刷新按钮
+            col1, col2 = st.columns([3, 1])
             
             with col2:
                 if st.button("🔄 Refresh"):
@@ -425,7 +390,7 @@ def render_examples_tab():
     # 创建国家/地区选择
     region = st.selectbox(
         "Select Region",
-        ["Brunei", "Malaysia", "Singapore", "International"]
+        ["Brunei"]
     )
     
     examples = {
@@ -460,128 +425,33 @@ Account: 01-001-01-123456
 Branch: Gadong Branch
 TAP Number: T123456789
             """
-        },
-        "Malaysia": {
-            "title": "Malaysian PII Examples",
-            "text": """
-=== Malaysian Personal Information ===
-Name: Tan Ah Kow
-IC Number: 800115-14-5678
-Old IC: A1234567
-Date of Birth: 15/01/1980
-Race: Chinese
-Religion: Buddhist
-Place of Birth: Hospital Kuala Lumpur
-Nationality: Malaysian
-Passport: A12345678
-Expiry Date: 31/12/2025
-
-=== Contact Information ===
-Mobile: +60 12-345 6789
-Home: +60 3-8912 3456
-Email: tan.ak@hotmail.com
-Address: 42, Jalan Merdeka 3/5
-Taman Selayang Baru
-68100 Batu Caves, Selangor
-
-=== Employment & Financial ===
-Occupation: Marketing Manager
-Employer: Petronas
-Staff ID: PTR/2015/7890
-EPF Number: EPF123456789
-Income Tax No: SG123456789
-Bank: Maybank
-Account: 1234 5678 9012
-Credit Card: 5105 1051 0510 5100
-Swift Code: MBBEMYKL
-            """
-        },
-        "Singapore": {
-            "title": "Singapore PII Examples",
-            "text": """
-=== Singapore Personal Information ===
-Name: Lee Wei Ming
-NRIC: S9812345A
-Date of Birth: 15/01/1998
-Race: Chinese
-Nationality: Singaporean
-Place of Birth: KK Women's and Children's Hospital
-Passport: E1234567K
-Expiry Date: 31/12/2025
-
-=== Contact Information ===
-Mobile: +65 8123 4567
-Home: +65 6789 0123
-Email: lee.wm@gmail.com
-Address: Block 123 Ang Mo Kio Avenue 6
-#12-34
-Singapore 560123
-
-=== Employment & Financial ===
-Occupation: Software Engineer
-Employer: DBS Bank
-Staff ID: DBS/2020/5678
-CPF Number: CPF123456789
-Tax Reference: G1234567K
-Bank: DBS
-Account: 027-12345-6
-Credit Card: 4111 1111 1111 1111
-UEN: T20SS0123A
-            """
-        },
-        "International": {
-            "title": "International PII Examples",
-            "text": """
-=== Personal Information ===
-Name: John Smith
-SSN: 123-45-6789
-Date of Birth: 01/15/1980
-Driver's License: D123-4567-8901
-Passport: 123456789
-Nationality: British
-
-=== Contact Information ===
-Phone: +1 (555) 123-4567
-Email: john.smith@gmail.com
-Address: 123 Main Street, Apt 4B
-New York, NY 10001
-United States
-
-=== Financial Information ===
-Bank: Chase Bank
-Account: 123456789012
-IBAN: GB29 NWBK 6016 1331 9268 19
-Credit Card: 3782 822463 10005
-Swift/BIC: NWBKGB2L
-Tax ID: GB123456789
-            """
         }
     }
     
-    # 获取选定国家的示例
-    example = examples.get(region)
-    if example:
+    if region in examples:
+        example = examples[region]
         st.subheader(example["title"])
         
-        # 创建两列布局
-        col1, col2 = st.columns(2)
+        # 显示示例文本
+        st.text_area(
+            "Example Text",
+            value=example["text"],
+            height=400,
+            disabled=True
+        )
         
-        with col1:
-            st.markdown("### Original Text")
-            st.text_area("Original", example["text"], height=600, disabled=True)
-            
-            if st.button("Test Detection", key=f"test_{region}"):
-                try:
-                    # 修改 API 调用方式
-                    result = asyncio.run(detect_pii(example["text"]))
+        # 添加测试按钮
+        if st.button("Test This Example"):
+            try:
+                result = asyncio.run(detect_pii(example["text"]))
+                
+                if result:
+                    col1, col2 = st.columns(2)
                     
-                    if result:
-                        with col2:
-                            st.markdown("### Detection Results")
-                        
-                        # 显示掩码后的文本
-                            st.markdown("#### Masked Text")
-                            st.text_area("Masked", result.get("masked_text", ""), height=600, disabled=True)
+                    with col1:
+                        st.subheader("Detection Results")
+                        if not result.get("is_safe", True):
+                            st.warning("⚠️ PII Detected")
                             
                             # 显示检测到的实体
                             if not result.get("is_safe", True):
@@ -609,11 +479,15 @@ Tax ID: GB123456789
                                         entities_df['Confidence'] = entities_df['Confidence'].apply(lambda x: f"{x:.2%}")
                                     
                                     st.dataframe(entities_df)
-                    else:
-                                st.success("✅ No PII Detected")
-                                
-                except Exception as e:
-                    st.error(f"Detection error: {str(e)}")
+                        else:
+                            st.success("✅ No PII Detected")
+                            
+                    with col2:
+                        st.subheader("Masked Text")
+                        st.code(result.get("masked_text", example["text"]))
+                        
+            except Exception as e:
+                st.error(f"Detection error: {str(e)}")
 
 def get_profile_example(region):
     """获取完整个人资料示例"""
@@ -828,8 +702,7 @@ def prepare_rule_for_update(rule_data: Dict[str, Any]) -> Dict[str, Any]:
         "pattern": str(rule_data["pattern"]),
         "description": str(rule_data.get("description", "")),
         "category": str(rule_data.get("category", "general")),
-        "country": str(rule_data.get("country", "international")),
-        "language": str(rule_data.get("language", "en")),
+        "country": str(rule_data.get("country", "BN")),
         "enabled": bool(rule_data.get("enabled", True)),
         "masking_method": str(rule_data.get("masking_method", "mask"))
     }

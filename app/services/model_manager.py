@@ -19,6 +19,19 @@ class ModelManager:
     """模型管理器类"""
     
     def __init__(self):
+        self.initialize()
+        
+    def _init_device(self):
+        """初始化设备，避免 MPS 和 CUDA 相关问题"""
+        try:
+            import torch
+            # 强制使用 CPU，避免 MPS 和 CUDA 相关问题
+            return torch.device('cpu')
+        except Exception as e:
+            logger.error(f"Error initializing device: {e}")
+            return None  # 返回 None 而不是尝试创建设备
+
+    def initialize(self) -> None:
         """初始化模型管理器"""
         self.available_models = {
             "meta-llama/Prompt-Guard-86M": "Prompt injection detection model"
@@ -50,45 +63,7 @@ class ModelManager:
         except Exception as e:
             logger.error(f"Failed to preload models during initialization: {str(e)}")
             raise
-        
-    def _init_device(self):
-        """初始化设备，避免 MPS 和 CUDA 相关问题"""
-        try:
-            import torch
-            # 强制使用 CPU，避免 MPS 和 CUDA 相关问题
-            return torch.device('cpu')
-        except Exception as e:
-            logger.error(f"Error initializing device: {e}")
-            return None  # 返回 None 而不是尝试创建设备
 
-    def initialize(self) -> None:
-        """初始化模型管理器"""
-        try:
-            # 使用 requests 替代 ollama
-            self.model = "deepseek-r1:7b"
-            self.api_url = "http://127.0.0.1:11434/api/generate"
-            logger.info(f"Using model: {self.model} via API")
-            
-            # 测试模型是否可用
-            try:
-                response = requests.post(
-                    self.api_url,
-                    json={
-                        "model": self.model,
-                        "prompt": "test"
-                    }
-                )
-                if response.status_code == 200:
-                    logger.info("Model API initialized successfully")
-                else:
-                    raise Exception(f"API returned status code {response.status_code}")
-            except Exception as e:
-                logger.error(f"Failed to test model API: {str(e)}")
-                raise
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize model manager: {str(e)}")
-            raise
 
     def _call_model(self, prompt: str) -> str:
         """调用模型"""
@@ -242,68 +217,6 @@ class ModelManager:
             for model_id in settings.AVAILABLE_MODELS_MAP
         ]
 
-    def load_islamic_rules(self, language: str = "en") -> Dict[str, Any]:
-        """
-        加载伊斯兰教文化规则
-        
-        参数:
-        - language: 语言代码，支持 'en' 和 'ms'
-        
-        返回:
-        - 伊斯兰规则配置
-        """
-        try:
-            # 检查语言参数有效性
-            if language not in ["en", "ms"]:
-                logger.warning(f"Unsupported language: {language}, defaulting to English")
-                language = "en"
-                
-            # 使用绝对路径而非相对路径
-            rules_path = os.path.join(settings.CONFIG_DIR, f"islamic_rules_{language}.json")
-            
-            logger.info(f"Loading Islamic rules for language {language} from {rules_path}")
-            
-            if os.path.exists(rules_path):
-                with open(rules_path, "r", encoding="utf-8") as f:
-                    rules = json.load(f)
-                    logger.info(f"Successfully loaded Islamic rules for language {language}")
-                    return rules
-            else:
-                logger.warning(f"Islamic rules file not found: {rules_path}")
-                # 返回空的默认配置
-                return {
-                    "context": {
-                        "default_prompt": "",
-                        "islamic_prompt": "",
-                        "system_prompt": ""
-                    },
-                    "response_format": {
-                        "default_prompt": "Answer: {question}" if language == "en" else "Jawab: {question}",
-                        "islamic_prompt": "Answer according to Islamic principles: {question}" if language == "en" 
-                                          else "Jawab mengikut prinsip Islam: {question}"
-                    },
-                    "forbidden_topics": [],
-                    "guidelines": [],
-                    "rules": []
-                }
-        except Exception as e:
-            logger.error(f"Error loading Islamic rules for language {language}: {str(e)}")
-            # 返回空的默认配置
-            return {
-                "context": {
-                    "default_prompt": "",
-                    "islamic_prompt": "",
-                    "system_prompt": ""
-                },
-                "response_format": {
-                    "default_prompt": "Answer: {question}" if language == "en" else "Jawab: {question}",
-                    "islamic_prompt": "Answer according to Islamic principles: {question}" if language == "en" 
-                                      else "Jawab mengikut prinsip Islam: {question}"
-                },
-                "forbidden_topics": [],
-                "guidelines": [],
-                "rules": []
-            } 
 
     async def get_model_output(self, text: str) -> Any:
         """

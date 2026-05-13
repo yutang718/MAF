@@ -6,6 +6,7 @@ from services.model_manager import ModelManager
 from services.islamic_context_manager import IslamicContextManager
 from services.pii_detector import PIIDetector
 from services.prompt_checker import PromptChecker
+from services.hikma_detector import HikmaDetector
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
@@ -25,6 +26,7 @@ class Services:
             cls._instance.islamic_context_manager = IslamicContextManager()
             cls._instance.pii_detector = PIIDetector()
             cls._instance.prompt_checker = PromptChecker(cls._instance.model_manager)
+            cls._instance.hikma_detector = HikmaDetector()
         return cls._instance
 
     def __init__(self):
@@ -54,6 +56,10 @@ class Services:
             # 4. 初始化提示词检查器
             logger.info("Initializing prompt checker...")
             self.prompt_checker.initialize()
+
+            # 5. 初始化 HikmaAI 检测器
+            logger.info("Initializing HikmaAI detector...")
+            self.hikma_detector.initialize()
             
             logger.info("All services initialized successfully")
             Services._initialized = True

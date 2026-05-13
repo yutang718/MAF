@@ -1,16 +1,15 @@
+# syntax=docker/dockerfile:1
 FROM python:3.10-slim
 
 WORKDIR /frontend
 
-# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Create logs directory
-RUN mkdir -p logs
+RUN mkdir -p logs .streamlit
 
 EXPOSE 8501
 

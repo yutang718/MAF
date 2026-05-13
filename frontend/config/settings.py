@@ -2,7 +2,10 @@
 import os
 from dotenv import load_dotenv
 from core.logging import get_logger
-from pydantic import BaseSettings
+try:
+    from pydantic_settings import BaseSettings
+except ImportError:
+    from pydantic import BaseSettings
 
 # 加载环境变量
 load_dotenv()
@@ -10,7 +13,7 @@ load_dotenv()
 logger = get_logger("settings")
 
 # API 配置
-API_BASE_URL = "http://localhost:8000"  # 确保这个URL正确
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 # 确保API_BASE_URL末尾没有斜杠
 if API_BASE_URL.endswith("/"):

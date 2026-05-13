@@ -10,7 +10,8 @@ from config.settings import get_api_url
 logger = get_logger("utils.api")
 
 # API 基础配置
-BASE_URL = "http://localhost:8001/api/v1"  # 更新端口为 8001
+import os
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000") + "/api/v1"
 
 async def handle_response(response: aiohttp.ClientResponse) -> Dict[str, Any]:
     """处理API响应"""
@@ -120,9 +121,9 @@ async def detect_pii(text: str) -> Dict[str, Any]:
     """检测文本中的PII信息"""
     try:
         response = await call_api(
-            method='POST',
-            endpoint='/pii/detect',
-            data={"text": text}
+            '/pii/detect',
+            'POST',
+            {"text": text}
         )
         return response
     except Exception as e:

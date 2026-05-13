@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Any
 import os
 from dotenv import load_dotenv
-from pydantic import BaseModel, validator
-from pydantic import BaseSettings
+from pydantic import BaseModel
+from pydantic_settings import BaseSettings
 from pathlib import Path
 
 # 确保在创建 Settings 实例之前加载 .env 文件
@@ -46,11 +46,7 @@ class Settings(BaseSettings):
     
     PII_SUPPORTED_LANGUAGES: set = {"en", "ms", "zh"}
     
-    @validator("CONFIG_DIR")
-    def create_config_dir(cls, v):
-        """确保配置目录存在"""
-        os.makedirs(v, exist_ok=True)
-        return v
+    # CONFIG_DIR existence is ensured after creating the Settings instance
     
     # 安全设置
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
@@ -60,8 +56,6 @@ class Settings(BaseSettings):
     # 模型设置
     AVAILABLE_MODELS: Dict[str, str] = {
         "ProtectAI/deberta-v3-base-prompt-injection-v2": "ProtectAI's DeBERTa model for prompt injection detection",
-        "microsoft/deberta-v3-base": "Microsoft's DeBERTa model for general text classification",
-        "meta-llama/Prompt-Guard-86M": "Meta's Prompt Guard model for jailbreak detection (requires access permission)"
     }
     
     # Security Rules
@@ -77,7 +71,7 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     
     # DeepSeek API settings
-    DEEPSEEK_API_KEY: str = "sk-6e4f884cafe24f6f8c9b84324da06c32"
+    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-ee2ee84b13384efa9594eda1d1c2f02e")
     
     # 为了兼容性，添加 AVAILABLE_MODELS_MAP
     @property
@@ -116,6 +110,9 @@ class Settings(BaseSettings):
 
 # 创建全局设置实例
 settings = Settings()
+
+# Ensure CONFIG_DIR exists (created here to avoid pydantic v1/v2 validator incompat)
+os.makedirs(settings.CONFIG_DIR, exist_ok=True)
 
 # 打印调试信息
 print(f"Hugging Face Token loaded: {'Yes' if settings.HUGGINGFACE_TOKEN else 'No'}") 

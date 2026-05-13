@@ -11,7 +11,6 @@ from langdetect import detect, LangDetectException
 from pathlib import Path
 from datetime import datetime
 import requests
-from services.islamic_context_manager import IslamicContextManager
 
 logger = get_logger("services.model_manager")
 
@@ -347,13 +346,9 @@ class ModelManager:
         # 对于当前模型，我们使用相同的检测逻辑
         return await self.get_jailbreak_score(model_id, text)
 
-    def get_current_model(self) -> Dict[str, Any]:
-        """获取当前模型信息"""
-        return self.current_model
-    
     def update_config(self, config: Dict[str, Any]) -> None:
         """更新模型配置"""
-        self.config.update(config)
+        self.current_model.update(config)
     
     def _get_model_name(self, model_id: str) -> str:
         """根据模型ID获取模型名称"""

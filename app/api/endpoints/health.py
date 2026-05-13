@@ -3,44 +3,28 @@ from fastapi import APIRouter, Depends
 from datetime import datetime
 import os
 import platform
-import psutil
-from core.dependencies import get_model_manager, get_pii_detector
-from services.model_manager import ModelManager
-from services.pii_detector import PIIDetector
+from core.dependencies import get_services, Services
 from core.config import settings
 
 router = APIRouter()
 
 @router.get("/")
-async def health_check(
-    model_manager: ModelManager = Depends(get_model_manager),
-    pii_detector: PIIDetector = Depends(get_pii_detector)
-):
-    """
-    健康检查端点
-    
-    返回系统状态信息和各组件运行状态
-    """
-    process = psutil.Process(os.getpid())
-    
-    # 获取模型状态
-    loaded_models = getattr(model_manager, "loaded_models", {})
-    loaded_models_list = list(loaded_models.keys()) if loaded_models else []
-    
-    # 获取PII规则状态
+async def health_check(services: Services = Depends(get_services)):
+    """健康检查端点"""
+    model_manager = services.model_manager
+    pii_detector = services.pii_detector
+
+    loaded_models_list = list(model_manager.models.keys())
     pii_rules_count = len(pii_detector.rules)
-    pii_rules_enabled = sum(1 for rule in pii_detector.rules if rule.enabled)
-    
+    pii_rules_enabled = sum(1 for rule in pii_detector.rules if isinstance(rule, dict) and rule.get("enabled", True))
+
     return {
         "status": "healthy",
         "version": settings.VERSION,
         "timestamp": datetime.now().isoformat(),
-        "uptime_seconds": int(process.create_time()),
         "system_info": {
             "platform": platform.platform(),
             "python_version": platform.python_version(),
-            "memory_usage_mb": round(process.memory_info().rss / 1024 / 1024, 2),
-            "cpu_percent": process.cpu_percent()
         },
         "components": {
             "model_manager": {
@@ -55,5 +39,3 @@ async def health_check(
             }
         }
     }
-
-

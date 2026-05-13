@@ -173,22 +173,37 @@ class PIIDetector:
             
             # 初始化分析器
             try:
-                spacy.load('en_core_web_lg')    
-                
-                # 创建分析器引擎
-                self.analyzer = AnalyzerEngine()
-                
+                # Use the available spaCy model
+                spacy_model = "en_core_web_sm"
+                for model_name in ["en_core_web_lg", "en_core_web_sm"]:
+                    try:
+                        spacy.load(model_name)
+                        spacy_model = model_name
+                        logger.info(f"Loaded spaCy model: {model_name}")
+                        break
+                    except OSError:
+                        continue
+
+                # Create analyzer with explicit NLP engine config to prevent auto-download
+                nlp_config = {
+                    "nlp_engine_name": "spacy",
+                    "models": [{"lang_code": "en", "model_name": spacy_model}],
+                }
+                nlp_engine = NlpEngineProvider(nlp_configuration=nlp_config).create_engine()
+                self.analyzer = AnalyzerEngine(nlp_engine=nlp_engine)
+
                 # 初始化匿名化器
                 self.anonymizer = AnonymizerEngine()
-                
+
                 # 注册自定义规则
                 self._register_custom_rules()
-                
+
                 self._initialized = True
                 logger.info("PII detector initialized successfully")
-                
+
             except Exception as e:
                 logger.error(f"Failed to initialize NLP engine: {str(e)}")
+                # Re-raise so initialization failure is visible to caller
                 raise
             
         except Exception as e:

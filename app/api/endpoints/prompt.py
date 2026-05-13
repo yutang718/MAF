@@ -57,11 +57,10 @@ async def get_available_models(services = Depends(get_services)) -> Dict[str, An
         )
 
 @router.get("/current-model")
-async def get_current_model() -> Dict[str, Any]:
+async def get_current_model(services: Services = Depends(get_services)) -> Dict[str, Any]:
     """获取当前使用的模型信息"""
     try:
-        model_manager = get_model_manager()
-        return model_manager.get_current_model()
+        return services.model_manager.get_current_model()
     except Exception as e:
         logger.error(f"Error getting current model: {str(e)}")
         raise HTTPException(
@@ -70,10 +69,10 @@ async def get_current_model() -> Dict[str, Any]:
         )
 
 @router.post("/set-model")
-async def set_current_model(request: Dict[str, Any]) -> Dict[str, Any]:
+async def set_current_model(request: Dict[str, Any], services: Services = Depends(get_services)) -> Dict[str, Any]:
     """设置当前模型"""
     try:
-        model_manager = get_model_manager()
+        model_manager = services.model_manager
         model_id = request.get("model_id")
         
         if not model_id:
@@ -131,10 +130,10 @@ async def detect_prompt(
         )
 
 @router.post("/config/update")
-async def update_config(config: Dict[str, Any]) -> Dict[str, Any]:
+async def update_config(config: Dict[str, Any], services: Services = Depends(get_services)) -> Dict[str, Any]:
     """更新模型配置"""
     try:
-        model_manager.update_config(config)
+        services.model_manager.update_config(config)
         return {"status": "success", "message": "Configuration updated successfully"}
     except Exception as e:
         logger.error(f"Error updating configuration: {str(e)}")

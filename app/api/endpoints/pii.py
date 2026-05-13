@@ -20,6 +20,7 @@ from models.pii import (
 )
 from core.dependencies import get_services, Services
 from core.logging import get_logger
+from core.config import settings
 
 
 # 获取模块的logger
@@ -47,60 +48,54 @@ async def get_rules(
             detail=f"Failed to get PII rules: {str(e)}"
         )
 
-@router.get("/rules/{rule_id}", response_model=PIIRule)
+@router.get("/rules/{rule_id}")
 async def get_pii_rule(
     rule_id: str,
     services: Services = Depends(get_services)
 ):
     """获取特定ID的PII规则"""
     try:
-        rule = services.pii_detector.get_rule_by_id(rule_id)
-        if not rule:
-            raise HTTPException(status_code=404, detail=f"规则ID {rule_id} 不存在")
-        return rule
+        pii_detector = services.pii_detector
+        for rule in pii_detector.rules:
+            if rule.get("id") == rule_id:
+                return rule
+        raise HTTPException(status_code=404, detail=f"Rule ID {rule_id} not found")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取规则失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get rule: {str(e)}")
 
-@router.post("/rules", response_model=PIIRule)
-async def create_rule(rule: PIIRule):
+@router.post("/rules")
+async def create_rule(rule: PIIRule, services: Services = Depends(get_services)):
     """创建新的PII规则"""
     try:
+        pii_detector = services.pii_detector
         rule_data = rule.dict()
-        if 'country' not in rule_data:
-            rule_data['country'] = ''
-        if 'enabled' not in rule_data:
-            rule_data['enabled'] = True
-            
-        new_rule = pii_detector.add_rule(rule_data)
-        pii_detector.reload_rules()
-        return new_rule
+        rule_data.setdefault('country', '')
+        rule_data.setdefault('enabled', True)
+        pii_detector.rules.append(rule_data)
+        pii_detector._register_custom_rules()
+        return rule_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/rules/{rule_id}", response_model=PIIRule)
-async def update_rule(rule_id: str, rule: PIIRule) -> Dict[str, Any]:
+@router.put("/rules/{rule_id}")
+async def update_rule(rule_id: str, rule: PIIRule, services: Services = Depends(get_services)) -> Dict[str, Any]:
     """更新单个PII规则"""
     try:
-        pii_detector = get_services().get_pii_detector()
-        
-        # 确保路径参数和请求体中的ID匹配
-        if rule_id != rule.id:
-            raise HTTPException(
-                status_code=400,
-                detail="Rule ID in path does not match ID in request body"
-            )
-            
-        updated_rule = pii_detector.update_rule(rule_id, rule.dict())
-        if not updated_rule:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Rule with ID {rule_id} not found"
-            )
-            
-        return updated_rule
-        
+        pii_detector = services.pii_detector
+
+        for i, existing_rule in enumerate(pii_detector.rules):
+            if existing_rule.get("id") == rule_id:
+                pii_detector.rules[i] = rule.dict()
+                pii_detector._register_custom_rules()
+                return pii_detector.rules[i]
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Rule with ID {rule_id} not found"
+        )
+
     except HTTPException:
         raise
     except Exception as e:
@@ -111,29 +106,27 @@ async def update_rule(rule_id: str, rule: PIIRule) -> Dict[str, Any]:
         )
 
 @router.delete("/rules/{rule_id}")
-async def delete_rule(rule_id: str):
+async def delete_rule(rule_id: str, services: Services = Depends(get_services)):
     """删除PII规则"""
     try:
-        pii_detector.delete_rule(rule_id)
-        await pii_detector.reload_rules()  # 重新加载所有规则
+        pii_detector = services.pii_detector
+        pii_detector.rules = [r for r in pii_detector.rules if r.get("id") != rule_id]
+        pii_detector._register_custom_rules()
         return {"message": "Rule deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/rules/reload")
-def reload_rules() -> Dict[str, Any]:
-    """
-    重新加载PII规则
-    """
+def reload_rules(services: Services = Depends(get_services)) -> Dict[str, Any]:
+    """重新加载PII规则"""
     try:
-        # 重新加载规则
-        pii_detector.load_rules_from_file()  # 移除 await
-        
+        pii_detector = services.pii_detector
+        pii_detector.load_rules()
+        pii_detector._register_custom_rules()
         return {
             "status": "success",
             "message": "Rules reloaded successfully"
         }
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -163,10 +156,10 @@ async def detect_pii(
         )
 
 @router.put("/rules/bulk", response_model=PIIRuleResponse)
-async def update_rules_bulk(rules_data: PIIRuleBulkUpdate) -> Dict[str, Any]:
+async def update_rules_bulk(rules_data: PIIRuleBulkUpdate, services: Services = Depends(get_services)) -> Dict[str, Any]:
     """批量更新PII规则"""
     try:
-        pii_detector = get_services().get_pii_detector()
+        pii_detector = services.pii_detector
         logger.info(f"Updating {len(rules_data.rules)} PII rules")
         
         # Pydantic 已经验证了数据格式，直接使用
@@ -192,22 +185,21 @@ async def update_rules_bulk(rules_data: PIIRuleBulkUpdate) -> Dict[str, Any]:
         )
 
 @router.post("/mask")
-async def mask_pii(request: Request) -> Dict[str, Any]:
+async def mask_pii(request: Request, services: Services = Depends(get_services)) -> Dict[str, Any]:
     """PII脱敏处理"""
     try:
         data = await request.json()
         text = data.get("text", "")
-        
+
         if not text:
             raise HTTPException(
                 status_code=400,
                 detail="Text field is required"
             )
-            
-        # 使用 PIIDetector 的 mask 方法
-        masked_result = pii_detector.mask(text)
-        return masked_result
-        
+
+        result = services.pii_detector.detect_pii(text)
+        return {"masked_text": result.get("masked_text", text)}
+
     except Exception as e:
         logger.error(f"Error in mask_pii: {str(e)}")
         raise HTTPException(
@@ -270,13 +262,7 @@ async def preview_config(
 ):
     """预览PII检测配置效果"""
     try:
-        result = pii_detector.preview_config(
-            text=request.text,
-            language=request.language,
-            sensitivity=request.sensitivity,
-            masking_style=request.masking_style,
-            custom_rules=request.custom_rules
-        )
+        result = services.pii_detector.detect_pii(request.text)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -530,15 +516,15 @@ async def get_current_model():
     }
 
 @router.get("/system/info")
-async def get_system_info() -> Dict[str, Any]:
+async def get_system_info(services: Services = Depends(get_services)) -> Dict[str, Any]:
     """获取系统信息"""
     try:
+        pii_detector = services.pii_detector
         return {
-            "version": pii_detector.version,
-            "rules_count": len(pii_detector.get_rules()),
-            "supported_languages": pii_detector.supported_languages,
-            "models": pii_detector.get_models_info(),
-            "last_updated": pii_detector.last_updated
+            "version": "1.0",
+            "rules_count": len(pii_detector.rules),
+            "supported_languages": list(settings.PII_SUPPORTED_LANGUAGES),
+            "last_updated": datetime.now().isoformat()
         }
     except Exception as e:
         logger.error(f"Error getting system info: {e}")

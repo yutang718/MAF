@@ -1,0 +1,44 @@
+services:
+  backend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=https://api.deepseek.com
+      - LOG_LEVEL=INFO
+      - TRANSFORMERS_VERBOSITY=error
+      - PYTHONWARNINGS=ignore::UserWarning
+      - HF_HOME=/app/model_cache
+    volumes:
+      - model_cache:/app/model_cache
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/prompt/models')"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  model_cache:

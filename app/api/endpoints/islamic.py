@@ -46,10 +46,10 @@ async def get_all_islamic_rules(
         )
 
 @router.put("/rules/bulk")
-def update_rules_bulk(rules_data: dict):
+def update_rules_bulk(rules_data: dict, services: Services = Depends(get_services)):
     """批量更新Islamic规则"""
     try:
-        manager = get_services.get_islamic_manager()
+        manager = services.islamic_context_manager
         success = manager.update_rules(rules_data.get("rules", []))
         if success:
             return {
@@ -81,9 +81,7 @@ async def detect_islamic_context(
                 detail="Text field is required"
             )
             
-        # 等待异步结果
-        manager = get_services.get_islamic_manager()
-        result = await manager.detect(text)
+        result = await services.islamic_context_manager.detect(text)
         return result
         
     except Exception as e:

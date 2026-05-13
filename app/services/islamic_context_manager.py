@@ -25,22 +25,28 @@ class IslamicContextManager:
         """Initialize manager and load rules"""
         if self._initialized:
             return
-            
+
         try:
             logger.info("Initializing Islamic Context Manager...")
-            
-            # 初始化 OpenAI 客户端
-            self.client = OpenAI(
-                api_key=settings.DEEPSEEK_API_KEY,
-                base_url=settings.DEEPSEEK_BASE_URL
-            )
-            
-            # 加载规则
+
+            # Initialize OpenAI client (for DeepSeek API)
+            api_key = settings.DEEPSEEK_API_KEY
+            if api_key and api_key != "your-deepseek-api-key-here":
+                self.client = OpenAI(
+                    api_key=api_key,
+                    base_url=settings.DEEPSEEK_BASE_URL
+                )
+                logger.info("DeepSeek API client initialized")
+            else:
+                self.client = None
+                logger.warning("No valid DEEPSEEK_API_KEY configured — chat/detect features will be unavailable")
+
+            # Load rules (always works, file-based)
             self.load_rules()
-            
+
             self._initialized = True
             logger.info("Islamic context manager initialization completed")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize Islamic context manager: {str(e)}")
             self._initialized = False
@@ -49,32 +55,28 @@ class IslamicContextManager:
     def _call_deepseek_api(self, text: str) -> str:
         """调用 DeepSeek API 进行 Islamic 上下文检测"""
         try:
+            if not self.client:
+                raise ValueError("DeepSeek API client not initialized. Check DEEPSEEK_API_KEY configuration.")
+
             logger.info("Calling DeepSeek API for Islamic context detection")
-            
-            # 构建 prompt
-            system_prompt = """You are an expert in Islamic context analysis. 
-            Analyze the given text and determine if it contains Islamic context, terms, or references. 
+
+            system_prompt = """You are an expert in Islamic context analysis.
+            Analyze the given text and determine if it contains Islamic context, terms, or references.
             Provide a detailed analysis with confidence score and categories."""
-            
-            user_prompt = f"{text}"
-            
-            # 使用同步调用
+
             response = self.client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "user", "content": text}
                 ],
                 stream=False
             )
-            
-            # 获取响应内容
+
             result = response.choices[0].message.content
             logger.info("Successfully received response from DeepSeek API")
-            logger.debug(f"API response: {result}")
-            
             return result
-            
+
         except Exception as e:
             logger.error(f"Error calling DeepSeek API: {str(e)}")
             raise
@@ -82,12 +84,13 @@ class IslamicContextManager:
     def _format_rules_for_prompt(self) -> str:
         """Format rules for prompt"""
         rules_text = []
-        for rule in self.rules.get("rules", []):
+        for rule in self.rules:
             if rule.get("enabled", True):
                 rules_text.append(f"- {rule['name']}: {rule['description']}")
-        
-        guidelines = self.rules.get("guidelines", [])
-        forbidden = self.rules.get("forbidden_topics", [])
+
+        rules_data = self.rules_data.get("en", {})
+        guidelines = rules_data.get("guidelines", [])
+        forbidden = rules_data.get("forbidden_topics", [])
         
         formatted_text = "\n".join([
             "Guidelines:",
@@ -104,11 +107,12 @@ class IslamicContextManager:
         """检测文本的 Islamic 合规性"""
         if not self._initialized:
             self.initialize()
-            
+
         try:
+            if not self.client:
+                raise ValueError("DeepSeek API not configured. Set a valid DEEPSEEK_API_KEY to enable this feature.")
+
             logger.info(f"Detecting compliance with text: {text}, mode: {mode}")
-            
-            # 同步调用 API
             api_response = self._call_deepseek_api(text)
             
             # 解析响应
@@ -163,10 +167,11 @@ class IslamicContextManager:
         try:
             if not self._initialized:
                 self.initialize()
-            
-            # 更新规则列表但保持其他配置不变
-            self.rules["rules"] = rules
-            self._save_rules(self.rules)
+
+            self.rules = rules
+            # Update rules_data as well
+            if "en" in self.rules_data:
+                self.rules_data["en"]["rules"] = rules
             return True
         except Exception as e:
             logger.error(f"Error updating rules: {str(e)}")
@@ -303,8 +308,9 @@ class IslamicContextManager:
     def _save_rules(self, rules: Dict[str, Any]) -> None:
         """Save rules to file"""
         try:
-            logger.info(f"Saving rules to {self.rules_file}")
-            with open(self.rules_file, 'w', encoding='utf-8') as f:
+            rules_file = Path(settings.ISLAMIC_RULES_DIR) / "islamic_rules_en.json"
+            logger.info(f"Saving rules to {rules_file}")
+            with open(rules_file, 'w', encoding='utf-8') as f:
                 json.dump(rules, f, indent=2, ensure_ascii=False)
             logger.info("Rules saved successfully")
         except Exception as e:
@@ -325,7 +331,10 @@ class IslamicContextManager:
         """直接调用 DeepSeek API 获取回答"""
         if not self._initialized:
             self.initialize()
-        
+
+        if not self.client:
+            raise ValueError("DeepSeek API not configured. Set a valid DEEPSEEK_API_KEY to enable Islamic chat.")
+
         try:
             logger.info(f"Calling DeepSeek chat API with text: {text}, use islamic context: {use_islamic_context}")
             

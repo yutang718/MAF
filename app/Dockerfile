@@ -3,24 +3,18 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies with BuildKit pip cache
-# This mount persists the pip cache across builds so re-downloads are skipped
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+    pip install torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install -r requirements.txt && \
+    python -m spacy download en_core_web_sm
 
-# Download spaCy model
-RUN python -m spacy download en_core_web_sm
-
-# Copy application code (changes here don't invalidate pip cache layer)
 COPY . .
 
-# Create necessary directories
 RUN mkdir -p logs config/pii config/islamic model_cache
 
 ENV HF_HOME=/app/model_cache

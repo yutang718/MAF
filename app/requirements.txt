@@ -7,8 +7,7 @@ python-dotenv==1.0.0
 fastapi==0.104.1
 uvicorn==0.24.0
 
-# ML models
-torch>=2.2.0
+# ML models (torch installed separately via CPU index in Dockerfile)
 transformers>=4.36.0,<4.50.0
 tokenizers>=0.15
 spacy>=3.7.0

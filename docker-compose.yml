@@ -7,6 +7,7 @@ services:
       - "8000:8000"
     environment:
       - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
+      - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_BASE_URL=https://api.deepseek.com
@@ -30,12 +31,10 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend-react
       dockerfile: Dockerfile
     ports:
-      - "8080:8501"
-    environment:
-      - API_BASE_URL=http://backend:8000
+      - "8080:80"
     depends_on:
       - backend
     restart: unless-stopped

@@ -5,81 +5,100 @@ logger = get_logger("frontend.pages.home")
 
 
 def render_home_page():
-    """Render the home dashboard"""
+    st.title("MAF: Model Application Firewall")
 
-    # Hero section
     st.markdown("""
-    <div class="hero">
-        <h1>MAF - Model Application Firewall</h1>
-        <p>World's First Halal-Aware AI Protection System</p>
-        <p style="color: #818CF8; font-size: 0.9rem; margin-top: 1rem;">
-            Combining Islamic compliance, data protection, and prompt safety in one platform
-        </p>
+    <div class="research-box">
+    <strong>Abstract</strong> — MAF is a security framework for Large Language Model (LLM) applications.
+    It provides multi-layered protection through prompt injection detection, personally identifiable
+    information (PII) filtering, and Islamic compliance verification. The system integrates two
+    detection models — ProtectAI DeBERTa v3 (English) and HikmaAI mDeBERTa v3 (multilingual, 11 languages)
+    — with Microsoft Presidio for PII and a configurable Islamic rule engine.
     </div>
     """, unsafe_allow_html=True)
 
-    # Feature cards
-    col1, col2, col3, col4 = st.columns(4)
+    st.markdown("---")
+
+    # Architecture
+    st.header("Architecture")
+
+    col1, col2 = st.columns(2)
 
     with col1:
+        st.subheader("Detection Models")
         st.markdown("""
-        <div class="card">
-            <h3>🛡️ Prompt Safety</h3>
-            <p>Detect and block prompt injection attacks with ProtectAI DeBERTa model</p>
-        </div>
-        """, unsafe_allow_html=True)
+| Component | Model | Scope |
+|-----------|-------|-------|
+| Prompt Injection (EN) | ProtectAI DeBERTa v3 | English |
+| Prompt Injection (Multilingual) | HikmaAI mDeBERTa v3 | 11 languages |
+| PII Detection | Microsoft Presidio | Configurable rules |
+| Islamic Compliance | Rule-based engine | EN / AR |
+        """)
 
     with col2:
+        st.subheader("Technology Stack")
         st.markdown("""
-        <div class="card">
-            <h3>🤖 HikmaAI</h3>
-            <p>Multilingual injection detection with ONNX-optimized mDeBERTa (11 languages)</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown("""
-        <div class="card">
-            <h3>🔒 PII Protection</h3>
-            <p>Detect and mask personally identifiable information with Microsoft Presidio</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col4:
-        st.markdown("""
-        <div class="card">
-            <h3>✨ Islamic & Halal</h3>
-            <p>Ensure AI outputs comply with Islamic principles and Halal requirements</p>
-        </div>
-        """, unsafe_allow_html=True)
+| Layer | Technology |
+|-------|-----------|
+| API | FastAPI + Uvicorn |
+| ML Runtime | PyTorch + ONNX Runtime |
+| NLP | spaCy + Transformers |
+| PII | Microsoft Presidio |
+| Frontend | Streamlit |
+| Deployment | Docker Compose |
+        """)
 
     st.markdown("---")
 
-    # Metrics row
-    st.subheader("Platform Capabilities")
+    # Performance
+    st.header("Benchmark Summary")
+
     m1, m2, m3, m4 = st.columns(4)
-
     with m1:
-        st.metric("Detection Models", "2", help="ProtectAI + HikmaAI")
+        st.metric("ProtectAI F1", "0.815")
     with m2:
-        st.metric("Languages Supported", "11+")
+        st.metric("HikmaAI F1", "0.854")
     with m3:
-        st.metric("PII Rule Engine", "Presidio")
+        st.metric("Languages", "11")
     with m4:
-        st.metric("Halal Compliance", "Active")
+        st.metric("PII Entity Types", "8+")
 
     st.markdown("---")
 
-    # Quick start
-    st.subheader("Quick Start")
-    st.markdown("""
-    Use the **sidebar navigation** to access each module:
+    # Module descriptions
+    st.header("Modules")
 
-    1. **Prompt Injection Detection** — Test text against ProtectAI's DeBERTa model
-    2. **Model Comparison (HikmaAI)** — Compare ProtectAI vs HikmaAI side-by-side
-    3. **PII Filtering** — Detect and mask personal information
-    4. **Islamic Rules** — Configure and test Islamic compliance checks
+    st.subheader("1. Prompt Injection Detection")
+    st.markdown("""
+    Two models available for detection:
+    - **ProtectAI DeBERTa v3** — English-focused, PyTorch runtime, ~1.5 GB
+    - **HikmaAI mDeBERTa v3** — Multilingual (EN, VI, HI, TH, ZH, JA, RU, AR, SV, ES, IT), ONNX runtime, ~350 MB
+
+    The **Model Comparison** tab allows side-by-side evaluation on identical inputs.
     """)
+
+    st.subheader("2. PII Filtering")
+    st.markdown("""
+    Built on Microsoft Presidio with custom recognizers for region-specific patterns
+    (e.g., Bruneian name conventions). Supports detection and anonymization of
+    names, emails, phone numbers, national IDs, and other configurable entity types.
+    """)
+
+    st.subheader("3. Islamic Compliance")
+    st.markdown("""
+    Rule-based engine for verifying LLM outputs against Islamic principles and Halal
+    requirements. Supports English and Arabic rule sets with configurable severity levels.
+    """)
+
+    st.markdown("---")
+
+    st.markdown("""
+    <div class="research-box">
+    <strong>Navigation</strong> — Use the sidebar to access each module. The Prompt Injection
+    Detection page includes tabs for single-model testing, cross-model comparison, and
+    predefined adversarial test cases.
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

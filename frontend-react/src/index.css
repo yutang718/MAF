@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cyber-bg text-cyber-text antialiased;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  * {
+    @apply border-cyber-border;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply relative px-4 py-2 text-[15px] font-medium text-cyber-muted transition-all duration-200
+           hover:text-cyber-text rounded-md;
+  }
+  .nav-link-active {
+    @apply text-cyber-text bg-white/[0.04];
+  }
+  .nav-link-active::after {
+    content: '';
+    @apply absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2px] bg-cyber-accent rounded-full;
+  }
+
+  .panel {
+    @apply bg-cyber-surface/60 backdrop-blur-sm border border-cyber-border/60 rounded-xl p-6;
+  }
+  .panel-sm {
+    @apply bg-cyber-surface/60 backdrop-blur-sm border border-cyber-border/60 rounded-lg p-5;
+  }
+
+  .tab-btn {
+    @apply px-4 py-2 text-[15px] font-medium rounded-md transition-all duration-150
+           text-cyber-muted hover:text-cyber-text hover:bg-white/[0.03];
+  }
+  .tab-btn-active {
+    @apply bg-cyber-accent/[0.08] text-cyber-accent border border-cyber-accent/20;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-[15px] font-semibold
+           bg-cyber-accent/[0.08] border border-cyber-accent/30 text-cyber-accent rounded-lg
+           hover:bg-cyber-accent/[0.14] hover:border-cyber-accent/50 transition-all duration-150
+           disabled:opacity-30 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-[15px] font-medium
+           text-cyber-muted border border-cyber-border rounded-lg
+           hover:text-cyber-text hover:border-cyber-muted/50 transition-all duration-150;
+  }
+
+  .input-field {
+    @apply w-full bg-cyber-bg/80 border border-cyber-border/80 rounded-lg px-4 py-3
+           text-[15px] text-cyber-text font-mono leading-relaxed
+           placeholder:text-cyber-muted/40
+           focus:outline-none focus:border-cyber-accent/40 focus:ring-1 focus:ring-cyber-accent/20
+           transition-all duration-150;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-semibold uppercase tracking-wide;
+  }
+  .badge-safe {
+    @apply badge bg-emerald-500/[0.08] text-emerald-400 border border-emerald-500/20;
+  }
+  .badge-danger {
+    @apply badge bg-red-500/[0.08] text-red-400 border border-red-500/20;
+  }
+  .badge-warn {
+    @apply badge bg-amber-500/[0.08] text-amber-400 border border-amber-500/20;
+  }
+  .badge-info {
+    @apply badge bg-cyber-accent/[0.08] text-cyber-accent border border-cyber-accent/20;
+  }
+
+  .stat-card {
+    @apply panel-sm flex flex-col items-center justify-center text-center min-h-[90px];
+  }
+  .stat-value {
+    @apply text-2xl font-bold text-cyber-text font-mono;
+  }
+  .stat-label {
+    @apply text-sm text-cyber-muted uppercase tracking-wider mt-1.5;
+  }
+
+  .table-header {
+    @apply text-sm font-semibold text-cyber-muted uppercase tracking-wider text-left py-3 px-4;
+  }
+  .table-cell {
+    @apply text-[15px] text-cyber-text/80 py-3 px-4 border-t border-cyber-border/40;
+  }
+}

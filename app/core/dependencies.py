@@ -7,6 +7,7 @@ from services.islamic_context_manager import IslamicContextManager
 from services.pii_detector import PIIDetector
 from services.prompt_checker import PromptChecker
 from services.hikma_detector import HikmaDetector
+from services.promptguard_detector import PromptGuardDetector
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ class Services:
             cls._instance.pii_detector = PIIDetector()
             cls._instance.prompt_checker = PromptChecker(cls._instance.model_manager)
             cls._instance.hikma_detector = HikmaDetector()
+            cls._instance.promptguard_detector = PromptGuardDetector()
         return cls._instance
 
     def __init__(self):
@@ -60,7 +62,14 @@ class Services:
             # 5. 初始化 HikmaAI 检测器
             logger.info("Initializing HikmaAI detector...")
             self.hikma_detector.initialize()
-            
+
+            # 6. 初始化 Prompt-Guard 检测器 (gated model, may fail without auth)
+            try:
+                logger.info("Initializing Prompt-Guard detector...")
+                self.promptguard_detector.initialize()
+            except Exception as e:
+                logger.warning(f"Prompt-Guard model unavailable (may require HF auth): {e}")
+
             logger.info("All services initialized successfully")
             Services._initialized = True
             

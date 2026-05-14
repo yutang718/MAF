@@ -1,8 +1,6 @@
 """HikmaAI prompt injection detection service using ONNX Runtime"""
-import torch
-from typing import Dict, Any, List
+from typing import Dict, Any
 from core.logging import get_logger
-from core.config import settings
 import numpy as np
 
 logger = get_logger("services.hikma_detector")
@@ -17,6 +15,7 @@ class HikmaDetector:
         self.model = None
         self.tokenizer = None
         self._initialized = False
+        self._model_input_names = None
         self.threshold = 0.5
         self.max_length = 512
 
@@ -34,8 +33,9 @@ class HikmaDetector:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.MODEL_ID, subfolder="onnx/fp32"
             )
+            self._model_input_names = set(self.model.inputs_names)
             self._initialized = True
-            logger.info("HikmaAI model loaded successfully")
+            logger.info(f"HikmaAI model loaded successfully (inputs: {self._model_input_names})")
         except Exception as e:
             logger.error(f"Failed to load HikmaAI model: {e}")
             raise
@@ -50,14 +50,18 @@ class HikmaDetector:
 
         inputs = self.tokenizer(
             text,
-            return_tensors="pt",
+            return_tensors="np",
             truncation=True,
             max_length=self.max_length,
             padding=True,
         )
+        # Only pass inputs the ONNX model actually expects
+        inputs = {k: v for k, v in inputs.items() if k in self._model_input_names}
 
         outputs = self.model(**inputs)
-        logits = outputs.logits.detach().numpy()[0]
+        logits = outputs.logits[0]
+        if hasattr(logits, "numpy"):
+            logits = logits.numpy()
 
         probs = self._softmax(logits)
         benign_score = float(probs[0])

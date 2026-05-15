@@ -7,16 +7,17 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-    env:
-      DOCKER_CONFIG: /tmp/docker-ci-config
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Docker config without keychain
+      - name: Fix Docker keychain access for non-interactive session
         run: |
-          mkdir -p $DOCKER_CONFIG
-          echo '{}' > $DOCKER_CONFIG/config.json
+          security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db 2>/dev/null || true
+          # Fallback: ensure config exists without credsStore
+          if grep -q "credsStore" ~/.docker/config.json 2>/dev/null; then
+            sed -i '' 's/"credsStore"[^,}]*,\?//' ~/.docker/config.json
+          fi
 
       - name: Build and deploy containers
         run: |

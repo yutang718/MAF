@@ -7,29 +7,21 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    env:
+      DOCKER_CONFIG: /tmp/docker-ci-config
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Fix Docker credential helper for non-interactive session
+      - name: Setup Docker config without keychain
         run: |
-          mkdir -p ~/.docker
-          cat ~/.docker/config.json 2>/dev/null | python3 -c "
-          import sys, json
-          try:
-              c = json.load(sys.stdin)
-          except:
-              c = {}
-          c.pop('credsStore', None)
-          c.pop('credStore', None)
-          print(json.dumps(c))
-          " > ~/.docker/config.json.tmp
-          mv ~/.docker/config.json.tmp ~/.docker/config.json
+          mkdir -p $DOCKER_CONFIG
+          echo '{}' > $DOCKER_CONFIG/config.json
 
       - name: Build and deploy containers
         run: |
           cd ${{ github.workspace }}
-          docker compose down
+          docker compose down || true
           docker compose up --build -d
 
       - name: Wait for health check

@@ -13,22 +13,18 @@ jobs:
 
       - name: Fix Docker credential helper for non-interactive session
         run: |
-          # Disable osxkeychain credential helper that requires GUI interaction
-          export DOCKER_CONFIG="$HOME/.docker"
-          mkdir -p "$DOCKER_CONFIG"
-          if [ -f "$DOCKER_CONFIG/config.json" ]; then
-            # Remove credsStore from existing config
-            python3 -c "
-import json, os
-p = os.path.join(os.environ['DOCKER_CONFIG'], 'config.json')
-with open(p) as f: c = json.load(f)
-c.pop('credsStore', None)
-c.pop('credStore', None)
-with open(p, 'w') as f: json.dump(c, f)
-"
-          else
-            echo '{}' > "$DOCKER_CONFIG/config.json"
-          fi
+          mkdir -p ~/.docker
+          cat ~/.docker/config.json 2>/dev/null | python3 -c "
+          import sys, json
+          try:
+              c = json.load(sys.stdin)
+          except:
+              c = {}
+          c.pop('credsStore', None)
+          c.pop('credStore', None)
+          print(json.dumps(c))
+          " > ~/.docker/config.json.tmp
+          mv ~/.docker/config.json.tmp ~/.docker/config.json
 
       - name: Build and deploy containers
         run: |

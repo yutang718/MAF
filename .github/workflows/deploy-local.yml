@@ -11,6 +11,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Fix Docker credential helper for non-interactive session
+        run: |
+          # Remove osxkeychain credential helper that requires GUI interaction
+          mkdir -p ~/.docker
+          echo '{"credsStore":""}' > ~/.docker/config.json
+
       - name: Build and deploy containers
         run: |
           cd ${{ github.workspace }}

@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 import { detectIslamic, getRules } from '../api/islamic'
 import type { IslamicDetectionResult, IslamicRulesResponse } from '../types/islamic'
-
-const tabs = ['Compliance Check', 'Rule Configuration'] as const
-type Tab = (typeof tabs)[number]
+import { useTranslation } from '../i18n/context'
 
 const samples = [
   'What is the best approach to Islamic finance and investment?',
@@ -13,14 +11,24 @@ const samples = [
 ]
 
 export default function IslamicCompliancePage() {
-  const [activeTab, setActiveTab] = useState<Tab>('Compliance Check')
+  const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState<string>(t('islamic.tab.check'))
+
+  const tabs = [t('islamic.tab.check'), t('islamic.tab.rules')]
+
+  const tabIndex = tabs.indexOf(activeTab)
+  const effectiveIndex = tabIndex === -1 ? 0 : tabIndex
+  const effectiveTab = tabs[effectiveIndex]
+  if (tabIndex === -1 && activeTab !== effectiveTab) {
+    setTimeout(() => setActiveTab(effectiveTab), 0)
+  }
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-cyber-text">Compliance Engine</h1>
+        <h1 className="text-xl font-semibold text-cyber-text">{t('islamic.title')}</h1>
         <p className="text-sm text-cyber-muted mt-0.5">
-          Verify LLM outputs against Islamic principles, Halal requirements, and regional regulatory guidelines
+          {t('islamic.subtitle')}
         </p>
       </div>
 
@@ -33,13 +41,14 @@ export default function IslamicCompliancePage() {
         ))}
       </div>
 
-      {activeTab === 'Compliance Check' && <ComplianceCheck />}
-      {activeTab === 'Rule Configuration' && <RuleConfig />}
+      {effectiveIndex === 0 && <ComplianceCheck />}
+      {effectiveIndex === 1 && <RuleConfig />}
     </div>
   )
 }
 
 function ComplianceCheck() {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<IslamicDetectionResult | null>(null)
@@ -57,13 +66,13 @@ function ComplianceCheck() {
     <div className="grid grid-cols-5 gap-5">
       <div className="col-span-3 space-y-3">
         <textarea value={text} onChange={(e) => setText(e.target.value)}
-          placeholder="Enter text to verify compliance..."
+          placeholder={t('islamic.placeholder')}
           className="input-field h-40 resize-none" />
         <button onClick={run} disabled={loading || !text.trim()} className="btn-primary w-full">
-          {loading ? 'Verifying...' : 'Check Compliance'}
+          {loading ? t('islamic.checking') : t('islamic.check')}
         </button>
         <div className="space-y-1.5">
-          <span className="text-xs text-cyber-muted uppercase tracking-wider">Sample Inputs</span>
+          <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('islamic.sampleInputs')}</span>
           {samples.map((s, i) => (
             <button key={i} onClick={() => setText(s)}
               className="block w-full text-left text-sm text-cyber-muted/70 bg-cyber-surface-light border border-cyber-border/40 rounded-lg px-3 py-2 hover:border-cyber-accent/30 hover:text-cyber-text transition-all truncate">
@@ -76,7 +85,7 @@ function ComplianceCheck() {
       <div className="col-span-2">
         {error && <div className="panel border-cyber-danger/20 text-sm text-cyber-danger">{error}</div>}
         {result ? <ComplianceResult result={result} /> : !error && (
-          <div className="panel h-full flex items-center justify-center text-sm text-cyber-muted">Awaiting input</div>
+          <div className="panel h-full flex items-center justify-center text-sm text-cyber-muted">{t('islamic.awaiting')}</div>
         )}
       </div>
     </div>
@@ -84,17 +93,18 @@ function ComplianceCheck() {
 }
 
 function ComplianceResult({ result }: { result: IslamicDetectionResult }) {
+  const { t } = useTranslation()
   return (
     <div className={`panel ${result.is_compliant ? 'border-cyber-green/20 shadow-glow-green' : 'border-cyber-danger/20 shadow-glow-red'}`}>
       <div className="mb-4">
         <span className={result.is_compliant ? 'badge-safe' : 'badge-danger'}>
-          {result.is_compliant ? 'Compliant' : 'Non-Compliant'}
+          {result.is_compliant ? t('islamic.compliant') : t('islamic.nonCompliant')}
         </span>
       </div>
 
       {result.violations && result.violations.length > 0 && (
         <div className="mb-3">
-          <span className="text-xs text-cyber-muted uppercase tracking-wider">Violations</span>
+          <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('islamic.violations')}</span>
           <ul className="mt-1.5 space-y-1">
             {result.violations.map((v, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-cyber-danger/90">
@@ -108,7 +118,7 @@ function ComplianceResult({ result }: { result: IslamicDetectionResult }) {
 
       {result.suggestions && result.suggestions.length > 0 && (
         <div>
-          <span className="text-xs text-cyber-muted uppercase tracking-wider">Recommendations</span>
+          <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('islamic.recommendations')}</span>
           <ul className="mt-1.5 space-y-1">
             {result.suggestions.map((s, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-cyber-muted">
@@ -124,6 +134,7 @@ function ComplianceResult({ result }: { result: IslamicDetectionResult }) {
 }
 
 function RuleConfig() {
+  const { t } = useTranslation()
   const [rules, setRules] = useState<IslamicRulesResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -131,14 +142,14 @@ function RuleConfig() {
     getRules('en').then(setRules).catch(() => setRules(null)).finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="panel text-sm text-cyber-muted">Loading rule sets...</div>
-  if (!rules) return <div className="panel text-sm text-cyber-danger">Failed to load rules</div>
+  if (loading) return <div className="panel text-sm text-cyber-muted">{t('islamic.loadingRules')}</div>
+  if (!rules) return <div className="panel text-sm text-cyber-danger">{t('islamic.loadFailed')}</div>
 
   return (
     <div className="panel">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-cyber-text">Active Rule Set</h3>
-        <span className="badge-info">Language: {rules.language}</span>
+        <h3 className="text-sm font-semibold text-cyber-text">{t('islamic.activeRuleSet')}</h3>
+        <span className="badge-info">{t('islamic.language')}: {rules.language}</span>
       </div>
       <pre className="text-sm text-cyber-muted font-mono bg-cyber-bg rounded-lg p-4 overflow-auto max-h-[400px] border border-cyber-border/40">
         {JSON.stringify(rules.rules, null, 2)}

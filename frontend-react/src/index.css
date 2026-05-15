@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,6 +17,67 @@
   }
 }
 
+/* Animated background grid */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glowing pulse animation */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes border-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-count-up { animation: count-up 0.5s ease-out forwards; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+/* Gradient border effect */
+.border-gradient {
+  position: relative;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(167, 139, 250, 0.2), rgba(52, 211, 153, 0.2));
+  background-size: 200% 200%;
+  animation: border-flow 4s ease infinite;
+  z-index: -1;
+  border-radius: 12px;
+}
+
+/* Neon text glow */
+.text-glow {
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.5), 0 0 30px rgba(56, 189, 248, 0.2);
+}
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.5), 0 0 30px rgba(52, 211, 153, 0.2);
+}
+
 @layer components {
   .nav-link {
     @apply relative px-4 py-2 text-[15px] font-medium text-cyber-muted transition-all duration-200
@@ -28,6 +89,7 @@
   .nav-link-active::after {
     content: '';
     @apply absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-[2px] bg-cyber-accent rounded-full;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
   }
 
   .panel {
@@ -36,6 +98,9 @@
   .panel-sm {
     @apply bg-cyber-surface/60 backdrop-blur-sm border border-cyber-border/60 rounded-lg p-5;
   }
+  .panel-glow {
+    @apply panel shadow-glow-sm;
+  }
 
   .tab-btn {
     @apply px-4 py-2 text-[15px] font-medium rounded-md transition-all duration-150
@@ -43,6 +108,7 @@
   }
   .tab-btn-active {
     @apply bg-cyber-accent/[0.08] text-cyber-accent border border-cyber-accent/20;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.1);
   }
 
   .btn-primary {
@@ -50,6 +116,10 @@
            bg-cyber-accent/[0.08] border border-cyber-accent/30 text-cyber-accent rounded-lg
            hover:bg-cyber-accent/[0.14] hover:border-cyber-accent/50 transition-all duration-150
            disabled:opacity-30 disabled:cursor-not-allowed;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.05);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-[15px] font-medium
@@ -82,13 +152,21 @@
   }
 
   .stat-card {
-    @apply panel-sm flex flex-col items-center justify-center text-center min-h-[90px];
+    @apply panel-sm flex flex-col items-center justify-center text-center min-h-[100px] relative overflow-hidden;
+  }
+  .stat-card::after {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: radial-gradient(circle at center, rgba(56, 189, 248, 0.05), transparent 70%);
+  }
+  .stat-card:hover::after {
+    @apply opacity-100;
   }
   .stat-value {
-    @apply text-2xl font-bold text-cyber-text font-mono;
+    @apply text-3xl font-extrabold text-cyber-text font-mono;
   }
   .stat-label {
-    @apply text-sm text-cyber-muted uppercase tracking-wider mt-1.5;
+    @apply text-sm text-cyber-muted uppercase tracking-wider mt-2;
   }
 
   .table-header {

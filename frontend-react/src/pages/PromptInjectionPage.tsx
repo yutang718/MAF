@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { detectPrompt, detectHikma, detectPromptGuard } from '../api/prompt'
 import type { DetectionResult, HikmaResult, PromptGuardResult } from '../types/prompt'
-
-const tabs = ['Analysis', 'Available Models', 'Batch Evaluation'] as const
-type Tab = (typeof tabs)[number]
+import { useTranslation } from '../i18n/context'
 
 interface ModelConfig {
   enabled: boolean
@@ -57,19 +55,32 @@ const batchSamples = [
 ]
 
 export default function PromptInjectionPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('Analysis')
+  const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState<string>(t('prompt.tab.analysis'))
+
+  const tabs = [t('prompt.tab.analysis'), t('prompt.tab.models'), t('prompt.tab.batch')]
 
   // Per-model configuration
   const [protectConfig, setProtectConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'detailed' })
   const [hikmaConfig, setHikmaConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
   const [guardConfig, setGuardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: '3-class' })
 
+  // Determine which tab is active by index
+  const tabIndex = tabs.indexOf(activeTab)
+  // Reset to first tab if language changed and activeTab no longer matches
+  const effectiveIndex = tabIndex === -1 ? 0 : tabIndex
+  const effectiveTab = tabs[effectiveIndex]
+  if (tabIndex === -1 && activeTab !== effectiveTab) {
+    // sync state
+    setTimeout(() => setActiveTab(effectiveTab), 0)
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-cyber-text">Prompt Injection Analysis</h1>
+        <h1 className="text-xl font-semibold text-cyber-text">{t('prompt.title')}</h1>
         <p className="text-sm text-cyber-muted mt-1">
-          Multi-model adversarial detection — configure each model independently and compare results side-by-side
+          {t('prompt.subtitle')}
         </p>
       </div>
 
@@ -82,15 +93,15 @@ export default function PromptInjectionPage() {
         ))}
       </div>
 
-      {activeTab === 'Analysis' && (
+      {effectiveIndex === 0 && (
         <AnalysisTab
           protectConfig={protectConfig} setProtectConfig={setProtectConfig}
           hikmaConfig={hikmaConfig} setHikmaConfig={setHikmaConfig}
           guardConfig={guardConfig} setGuardConfig={setGuardConfig}
         />
       )}
-      {activeTab === 'Available Models' && <AvailableModelsTab />}
-      {activeTab === 'Batch Evaluation' && (
+      {effectiveIndex === 1 && <AvailableModelsTab />}
+      {effectiveIndex === 2 && (
         <BatchEvaluation
           protectConfig={protectConfig}
           hikmaConfig={hikmaConfig}
@@ -112,6 +123,7 @@ function AnalysisTab({
   hikmaConfig: ModelConfig; setHikmaConfig: (c: ModelConfig) => void
   guardConfig: ModelConfig; setGuardConfig: (c: ModelConfig) => void
 }) {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [protectResult, setProtectResult] = useState<DetectionResult | null>(null)
@@ -157,7 +169,7 @@ function AnalysisTab({
     <div className="space-y-5">
       {/* Model Configuration Panel */}
       <div className="panel">
-        <h3 className="text-sm font-semibold text-cyber-text mb-4">Model Parameters</h3>
+        <h3 className="text-sm font-semibold text-cyber-text mb-4">{t('prompt.modelParams')}</h3>
         <div className="grid grid-cols-3 gap-4">
           {/* ProtectAI Config */}
           <ModelConfigCard
@@ -165,15 +177,15 @@ function AnalysisTab({
             tag="English · PyTorch"
             config={protectConfig}
             onChange={setProtectConfig}
-            thresholdLabel="Risk Threshold"
+            thresholdLabel={t('prompt.riskThreshold')}
             extraControls={
               <div className="mt-2">
-                <label className="text-xs text-cyber-muted">Analysis Mode</label>
+                <label className="text-xs text-cyber-muted">{t('prompt.analysisMode')}</label>
                 <select value={protectConfig.mode}
                   onChange={(e) => setProtectConfig({ ...protectConfig, mode: e.target.value })}
                   className="mt-1 w-full bg-cyber-bg border border-cyber-border rounded px-2 py-1.5 text-sm text-cyber-text">
-                  <option value="basic">Basic (score only)</option>
-                  <option value="detailed">Detailed (patterns + explanation)</option>
+                  <option value="basic">{t('prompt.modeBasic')}</option>
+                  <option value="detailed">{t('prompt.modeDetailed')}</option>
                 </select>
               </div>
             }
@@ -185,7 +197,7 @@ function AnalysisTab({
             tag="11 Languages · ONNX"
             config={hikmaConfig}
             onChange={setHikmaConfig}
-            thresholdLabel="Injection Threshold"
+            thresholdLabel={t('prompt.injectionThreshold')}
           />
 
           {/* Prompt-Guard Config */}
@@ -194,7 +206,7 @@ function AnalysisTab({
             tag="Multilingual · 3-Class"
             config={guardConfig}
             onChange={setGuardConfig}
-            thresholdLabel="Threat Threshold"
+            thresholdLabel={t('prompt.threatThreshold')}
           />
         </div>
       </div>
@@ -202,10 +214,12 @@ function AnalysisTab({
       {/* Input */}
       <div className="panel space-y-3">
         <textarea value={text} onChange={(e) => setText(e.target.value)}
-          placeholder="Enter text to analyze across selected models..."
+          placeholder={t('prompt.placeholder')}
           className="input-field h-32 resize-none" />
         <button onClick={run} disabled={loading || !text.trim() || enabledCount === 0} className="btn-primary w-full">
-          {loading ? `Running ${enabledCount} model${enabledCount > 1 ? 's' : ''}...` : `Analyze with ${enabledCount} Model${enabledCount > 1 ? 's' : ''}`}
+          {loading
+            ? t('prompt.running', { count: enabledCount, plural: enabledCount > 1 ? 's' : '' })
+            : t('prompt.analyzeWith', { count: enabledCount, plural: enabledCount > 1 ? 's' : '' })}
         </button>
       </div>
 
@@ -223,13 +237,13 @@ function AnalysisTab({
             <ModelResultCard
               title="ProtectAI DeBERTa v3"
               safe={protectResult.is_safe}
-              label={protectResult.is_safe ? 'SAFE' : 'INJECTION'}
+              label={protectResult.is_safe ? t('prompt.safe') : t('prompt.injection')}
               score={protectResult.score}
-              scoreLabel="Risk Score"
+              scoreLabel={t('prompt.riskScore')}
               threshold={protectConfig.threshold}
               extra={protectResult.analysis?.patterns?.length ? (
                 <div className="mt-3 pt-3 border-t border-cyber-border/40">
-                  <span className="text-xs text-cyber-muted uppercase tracking-wider">Patterns</span>
+                  <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('prompt.patterns')}</span>
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {protectResult.analysis!.patterns!.map((p, i) => <span key={i} className="badge-warn">{p}</span>)}
                   </div>
@@ -244,7 +258,7 @@ function AnalysisTab({
               safe={hikmaResult.is_safe}
               label={hikmaResult.label}
               score={hikmaResult.injection_score}
-              scoreLabel="Injection Score"
+              scoreLabel={t('prompt.injectionScore')}
               threshold={hikmaConfig.threshold}
             />
           )}
@@ -255,14 +269,14 @@ function AnalysisTab({
               safe={guardResult.is_safe}
               label={guardResult.label}
               score={guardResult.threat_score}
-              scoreLabel="Threat Score (Injection + Jailbreak)"
+              scoreLabel={t('prompt.threatScore')}
               threshold={guardConfig.threshold}
               extra={(
                 <div className="mt-3 pt-3 border-t border-cyber-border/40">
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    <ScoreCell label="Benign" value={guardResult.scores.BENIGN} color="text-cyber-green" />
-                    <ScoreCell label="Injection" value={guardResult.scores.INJECTION} color="text-amber-400" />
-                    <ScoreCell label="Jailbreak" value={guardResult.scores.JAILBREAK} color="text-cyber-danger" />
+                    <ScoreCell label={t('prompt.benign')} value={guardResult.scores.BENIGN} color="text-cyber-green" />
+                    <ScoreCell label={t('prompt.injectionLabel')} value={guardResult.scores.INJECTION} color="text-amber-400" />
+                    <ScoreCell label={t('prompt.jailbreakLabel')} value={guardResult.scores.JAILBREAK} color="text-cyber-danger" />
                   </div>
                 </div>
               )}
@@ -359,6 +373,7 @@ function ScoreCell({ label, value, color }: { label: string; value: number; colo
 // ─── Available Models Tab ────────────────────────────────────────────────────
 
 function AvailableModelsTab() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-4">
@@ -366,60 +381,67 @@ function AvailableModelsTab() {
           name="ProtectAI DeBERTa v3"
           modelId="ProtectAI/deberta-v3-base-prompt-injection-v2"
           specs={[
-            ['Architecture', 'DeBERTa-v3-base (184M params)'],
-            ['Runtime', 'PyTorch'],
-            ['Languages', 'English (primary)'],
-            ['Classes', '2 — Safe / Injection'],
-            ['Size', '~1.5 GB'],
-            ['F1 Score', '0.815 (external benchmarks)'],
-            ['Recall', '99.74%'],
-            ['Max Tokens', '512'],
+            [t('prompt.architecture'), 'DeBERTa-v3-base (184M params)'],
+            [t('prompt.runtime'), 'PyTorch'],
+            [t('prompt.modelLanguages'), 'English (primary)'],
+            [t('prompt.classes'), '2 — Safe / Injection'],
+            [t('prompt.size'), '~1.5 GB'],
+            [t('prompt.f1Score'), '0.815 (external benchmarks)'],
+            [t('prompt.recall'), '99.74%'],
+            [t('prompt.maxTokens'), '512'],
           ]}
           strengths={['Highest recall on English text', 'Detailed analysis mode with pattern extraction', 'Well-maintained community model']}
           limitations={['English-only coverage', 'Large model size', 'No jailbreak differentiation']}
+          strengthsLabel={t('prompt.strengths')}
+          limitationsLabel={t('prompt.limitations')}
         />
 
         <ModelInfoCard
           name="HikmaAI mDeBERTa v3"
           modelId="HikmaAI/hikmaai-mdeberta-v3-base-prompt-injection"
           specs={[
-            ['Architecture', 'mDeBERTa-v3-base (ONNX FP32)'],
-            ['Runtime', 'ONNX Runtime'],
-            ['Languages', '11 (EN, VI, HI, TH, ZH, JA, RU, AR, SV, ES, IT)'],
-            ['Classes', '2 — Benign / Injection'],
-            ['Size', '~350 MB'],
-            ['F1 Score', '0.854 (external benchmarks)'],
-            ['Recall', '98.9%'],
-            ['Max Tokens', '512'],
+            [t('prompt.architecture'), 'mDeBERTa-v3-base (ONNX FP32)'],
+            [t('prompt.runtime'), 'ONNX Runtime'],
+            [t('prompt.modelLanguages'), '11 (EN, VI, HI, TH, ZH, JA, RU, AR, SV, ES, IT)'],
+            [t('prompt.classes'), '2 — Benign / Injection'],
+            [t('prompt.size'), '~350 MB'],
+            [t('prompt.f1Score'), '0.854 (external benchmarks)'],
+            [t('prompt.recall'), '98.9%'],
+            [t('prompt.maxTokens'), '512'],
           ]}
           strengths={['Best multilingual coverage (11 languages)', 'ONNX-optimized — faster inference', 'Outperforms ProtectAI on cross-lingual benchmarks']}
           limitations={['No explicit Malay training data', 'Binary classification only', 'ONNX format less flexible for fine-tuning']}
+          strengthsLabel={t('prompt.strengths')}
+          limitationsLabel={t('prompt.limitations')}
         />
 
         <ModelInfoCard
           name="Meta Prompt-Guard-86M"
           modelId="meta-llama/Prompt-Guard-86M"
           specs={[
-            ['Architecture', 'mDeBERTa-v3-base (86M + 192M embed)'],
-            ['Runtime', 'PyTorch'],
-            ['Languages', '100+ (multilingual backbone)'],
-            ['Classes', '3 — Benign / Injection / Jailbreak'],
-            ['Size', '~86 MB'],
-            ['Jailbreak TPR', '99.9%'],
-            ['Injection TPR', '99.5%'],
-            ['Max Tokens', '512'],
+            [t('prompt.architecture'), 'mDeBERTa-v3-base (86M + 192M embed)'],
+            [t('prompt.runtime'), 'PyTorch'],
+            [t('prompt.modelLanguages'), '100+ (multilingual backbone)'],
+            [t('prompt.classes'), '3 — Benign / Injection / Jailbreak'],
+            [t('prompt.size'), '~86 MB'],
+            [t('prompt.jailbreakTPR'), '99.9%'],
+            [t('prompt.injectionTPR'), '99.5%'],
+            [t('prompt.maxTokens'), '512'],
           ]}
           strengths={['Distinguishes injection from jailbreak', 'Smallest model — fastest inference', 'Broadest language coverage via mDeBERTa', 'Implicit Malay support (trained on 100+ langs)']}
           limitations={['Gated model (requires HF license acceptance)', 'May have lower precision on edge cases', 'Relatively new — less community validation']}
+          strengthsLabel={t('prompt.strengths')}
+          limitationsLabel={t('prompt.limitations')}
         />
       </div>
     </div>
   )
 }
 
-function ModelInfoCard({ name, modelId, specs, strengths, limitations }: {
+function ModelInfoCard({ name, modelId, specs, strengths, limitations, strengthsLabel, limitationsLabel }: {
   name: string; modelId: string
   specs: [string, string][]; strengths: string[]; limitations: string[]
+  strengthsLabel: string; limitationsLabel: string
 }) {
   return (
     <div className="panel space-y-4">
@@ -444,7 +466,7 @@ function ModelInfoCard({ name, modelId, specs, strengths, limitations }: {
 
       {/* Strengths */}
       <div>
-        <span className="text-xs text-cyber-green uppercase tracking-wider font-medium">Strengths</span>
+        <span className="text-xs text-cyber-green uppercase tracking-wider font-medium">{strengthsLabel}</span>
         <ul className="mt-1.5 space-y-1">
           {strengths.map((s, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-cyber-text/80">
@@ -457,7 +479,7 @@ function ModelInfoCard({ name, modelId, specs, strengths, limitations }: {
 
       {/* Limitations */}
       <div>
-        <span className="text-xs text-cyber-warning uppercase tracking-wider font-medium">Limitations</span>
+        <span className="text-xs text-cyber-warning uppercase tracking-wider font-medium">{limitationsLabel}</span>
         <ul className="mt-1.5 space-y-1">
           {limitations.map((l, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-cyber-muted">
@@ -476,6 +498,7 @@ function ModelInfoCard({ name, modelId, specs, strengths, limitations }: {
 function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig }: {
   protectConfig: ModelConfig; hikmaConfig: ModelConfig; guardConfig: ModelConfig
 }) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<Array<{
     text: string; expected: string; lang: string; category: string
@@ -524,13 +547,15 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig }: {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-cyber-muted">{batchSamples.length} samples (EN / Malay / Chinese) × {enabledCount} enabled model{enabledCount > 1 ? 's' : ''}</p>
+          <p className="text-sm text-cyber-muted">
+            {t('prompt.batchSamples', { count: batchSamples.length, models: enabledCount, plural: enabledCount > 1 ? 's' : '' })}
+          </p>
           <p className="text-xs text-cyber-muted mt-0.5">
-            Categories: Normal Query, Direct Override, Jailbreak, Data Exfiltration, Role-Play, Obfuscation, Prompt Extraction, Multi-Step
+            {t('prompt.batchCategories')}
           </p>
         </div>
         <button onClick={run} disabled={loading || enabledCount === 0} className="btn-primary">
-          {loading ? 'Running...' : `Execute Batch`}
+          {loading ? t('prompt.batchRunning') : t('prompt.executeBatch')}
         </button>
       </div>
 
@@ -538,10 +563,10 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig }: {
         <div className="panel overflow-x-auto">
           <table className="w-full">
             <thead><tr>
-              <th className="table-header">Lang</th>
-              <th className="table-header">Category</th>
-              <th className="table-header">Input</th>
-              <th className="table-header">Expected</th>
+              <th className="table-header">{t('prompt.table.lang')}</th>
+              <th className="table-header">{t('prompt.table.category')}</th>
+              <th className="table-header">{t('prompt.table.input')}</th>
+              <th className="table-header">{t('prompt.table.expected')}</th>
               {protectConfig.enabled && <th className="table-header">ProtectAI</th>}
               {hikmaConfig.enabled && <th className="table-header">HikmaAI</th>}
               {guardConfig.enabled && <th className="table-header">Prompt-Guard</th>}

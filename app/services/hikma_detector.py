@@ -80,6 +80,35 @@ class HikmaDetector:
             "confidence": round(max(benign_score, injection_score), 4),
         }
 
+    def detect_batch(self, texts: list, threshold: float = None) -> list:
+        if not self._initialized:
+            self.initialize()
+        if threshold is None:
+            threshold = self.threshold
+
+        inputs = self.tokenizer(
+            texts, return_tensors="np", truncation=True,
+            max_length=self.max_length, padding=True,
+        )
+        inputs = {k: v for k, v in inputs.items() if k in self._model_input_names}
+        outputs = self.model(**inputs)
+        logits = outputs.logits
+        if hasattr(logits, "numpy"):
+            logits = logits.numpy()
+
+        results = []
+        for i in range(len(texts)):
+            probs = self._softmax(logits[i])
+            benign_score = float(probs[0])
+            injection_score = float(probs[1])
+            is_injection = injection_score >= threshold
+            results.append({
+                "is_safe": not is_injection,
+                "injection_score": round(injection_score, 4),
+                "label": "INJECTION" if is_injection else "BENIGN",
+            })
+        return results
+
     @staticmethod
     def _softmax(x):
         e_x = np.exp(x - np.max(x))

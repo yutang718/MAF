@@ -79,3 +79,28 @@ class PromptGuardDetector:
                 "JAILBREAK": round(jailbreak_score, 4),
             },
         }
+
+    def detect_batch(self, texts: list, threshold: float = None) -> list:
+        if not self._initialized:
+            self.initialize()
+        if threshold is None:
+            threshold = self.threshold
+
+        inputs = self.tokenizer(
+            texts, return_tensors="pt", truncation=True,
+            max_length=self.max_length, padding=True,
+        )
+        with torch.no_grad():
+            logits = self.model(**inputs).logits
+        probs = torch.softmax(logits, dim=-1).numpy()
+
+        results = []
+        for i in range(len(texts)):
+            threat_score = float(probs[i][1]) + float(probs[i][2])
+            is_safe = threat_score < threshold
+            results.append({
+                "is_safe": is_safe,
+                "threat_score": round(threat_score, 4),
+                "label": LABELS[int(np.argmax(probs[i]))],
+            })
+        return results

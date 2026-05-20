@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { detectPrompt, detectHikma, detectPromptGuard, detectProventra, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun } from '../api/prompt'
+import { detectPrompt, detectHikma, detectPromptGuard, detectProventra, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun, uploadAndRunBenchmark } from '../api/prompt'
 import type { DetectionResult, HikmaResult, PromptGuardResult, ProventraResult } from '../types/prompt'
 import { useTranslation } from '../i18n/context'
 
@@ -110,7 +110,9 @@ export default function PromptInjectionPage() {
           proventraConfig={proventraConfig}
         />
       )}
-      {effectiveIndex === 3 && <BenchmarkTab />}
+      <div className={effectiveIndex === 3 ? '' : 'hidden'}>
+        <BenchmarkTab />
+      </div>
     </div>
   )
 }
@@ -699,6 +701,10 @@ interface BenchmarkModelMetrics {
   throughput_samples_per_sec: number
   details: Array<{ text: string; expected: string; predicted: string; score: number; latency_ms: number; correct: boolean }>
   error?: string
+  unlabeled?: boolean
+  detected_injection?: number
+  detected_benign?: number
+  detection_rate?: number
 }
 
 interface BenchmarkResultsData {
@@ -836,14 +842,12 @@ function BenchmarkTab() {
   }
 
   const deleteRun = async (id: string) => {
-    try {
-      await deleteBenchmarkRun(id)
-      setRuns(prev => prev.filter(r => r.id !== id))
-      if (pollTimerRef.current[id]) {
-        clearTimeout(pollTimerRef.current[id])
-        delete pollTimerRef.current[id]
-      }
-    } catch { /* ignore */ }
+    setRuns(prev => prev.filter(r => r.id !== id))
+    if (pollTimerRef.current[id]) {
+      clearTimeout(pollTimerRef.current[id])
+      delete pollTimerRef.current[id]
+    }
+    try { await deleteBenchmarkRun(id) } catch { /* backend may not have it */ }
   }
 
   const toggleModel = (key: string) => {
@@ -951,6 +955,22 @@ function BenchmarkTab() {
         </div>
       </div>
 
+      {/* Upload custom dataset */}
+      <UploadBenchmark
+        selectedModels={selectedModels}
+        thresholds={thresholds}
+        onStarted={(runId, datasetId) => {
+          const placeholder: BenchmarkRunResult = {
+            id: runId, dataset_id: datasetId, models: selectedModels,
+            status: 'pending', progress: 0, total: 0,
+            results: {}, error: null,
+          }
+          setRuns(prev => [placeholder, ...prev])
+          setLoading(true)
+          pollStatus(runId)
+        }}
+      />
+
       {/* Notification */}
       {notification && (
         <div className="panel-sm border-cyber-green/30 bg-cyber-green/[0.05] flex items-center justify-between">
@@ -980,11 +1000,13 @@ function BenchmarkTab() {
 
           {/* Completed */}
           {run.status === 'completed' && 'models' in run.results && (
-            <div className="relative">
-              <button onClick={() => deleteRun(run.id)}
-                className="absolute top-4 right-4 text-cyber-muted hover:text-cyber-danger text-sm z-10 px-2 py-1 rounded border border-cyber-border/40 hover:border-cyber-danger/40 transition-colors">
-                {t('prompt.bench.delete')}
-              </button>
+            <div>
+              <div className="flex items-center justify-end mb-1">
+                <button onClick={() => deleteRun(run.id)}
+                  className="text-xs text-cyber-muted hover:text-cyber-danger px-2 py-0.5 rounded border border-cyber-border/40 hover:border-cyber-danger/40 transition-colors">
+                  {t('prompt.bench.delete')}
+                </button>
+              </div>
               <BenchmarkResults results={run.results as BenchmarkResultsData} />
             </div>
           )}
@@ -1002,6 +1024,49 @@ function BenchmarkTab() {
   )
 }
 
+function UploadBenchmark({ selectedModels, thresholds, onStarted }: {
+  selectedModels: string[]; thresholds: Record<string, number>
+  onStarted: (runId: string, datasetId: string) => void
+}) {
+  const { t } = useTranslation()
+  const [uploading, setUploading] = useState(false)
+  const [uploadInfo, setUploadInfo] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || selectedModels.length === 0) return
+    setUploading(true)
+    setUploadInfo(null)
+    try {
+      const result = await uploadAndRunBenchmark(file, selectedModels, thresholds)
+      setUploadInfo(`${file.name}: ${result.samples_count} samples, ${result.has_labels ? 'labeled' : 'unlabeled'}`)
+      onStarted(result.run_id, result.dataset_id)
+    } catch (err) {
+      setUploadInfo(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="panel py-3 px-5">
+      <div className="flex items-center gap-4">
+        <span className="text-xs font-semibold text-cyber-muted uppercase tracking-wider">{t('prompt.bench.upload')}</span>
+        <label className={`px-3 py-1.5 rounded-md border text-xs font-medium cursor-pointer transition-all ${
+          uploading ? 'border-cyber-border/40 text-cyber-muted' : 'border-cyber-accent/40 text-cyber-accent hover:bg-cyber-accent/[0.08]'
+        }`}>
+          {uploading ? t('prompt.bench.uploading') : t('prompt.bench.chooseFile')}
+          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} disabled={uploading || selectedModels.length === 0} className="hidden" />
+        </label>
+        <span className="text-xs text-cyber-muted">{t('prompt.bench.uploadHint')}</span>
+        {uploadInfo && <span className="text-xs text-cyber-text ml-auto">{uploadInfo}</span>}
+      </div>
+    </div>
+  )
+}
+
 function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
   const { t } = useTranslation()
 
@@ -1013,21 +1078,21 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)
+  const isUnlabeled = models.length > 0 && models[0][1].unlabeled
 
-  // Industry composite score: F1 40% + (1-FPR) 25% + (1-FNR) 20% + Speed 15%
-  // Speed normalized: fastest gets 1.0, others proportional
+  // Industry composite score (only for labeled datasets)
   const scores: Record<string, { composite: number; rank: number }> = {}
-  if (models.length > 1) {
+  if (models.length > 1 && !isUnlabeled) {
     const minLatency = Math.min(...models.map(([, m]) => m.latency.mean_ms))
     const ranked = models.map(([key, m]) => {
-      const speedScore = minLatency / m.latency.mean_ms
-      const composite = m.f1_score * 0.40 + (1 - m.false_positive_rate) * 0.25 + (1 - m.false_negative_rate) * 0.20 + speedScore * 0.15
+      const speedScore = Math.log(1 + minLatency) / Math.log(1 + m.latency.mean_ms)
+      const composite = m.f1_score * 0.45 + (1 - m.false_positive_rate) * 0.25 + (1 - m.false_negative_rate) * 0.25 + speedScore * 0.05
       return { key, composite }
     }).sort((a, b) => b.composite - a.composite)
     ranked.forEach((r, i) => { scores[r.key] = { composite: r.composite, rank: i + 1 } })
   }
 
-  const winner = models.length > 1 ? Object.entries(scores).find(([, v]) => v.rank === 1)?.[0] : null
+  const winner = !isUnlabeled && models.length > 1 ? Object.entries(scores).find(([, v]) => v.rank === 1)?.[0] : null
 
   return (
     <div className="space-y-4">
@@ -1073,27 +1138,41 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                 {t('prompt.bench.threshold')}: <span className="font-mono text-cyber-accent">{(results.thresholds?.[key] ?? 0.5).toFixed(2)}</span>
               </p>
 
-              {/* Key metrics */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <MetricCell label={t('prompt.bench.accuracy')} value={`${(m.accuracy * 100).toFixed(1)}%`} color={m.accuracy > 0.9 ? 'text-cyber-green' : m.accuracy > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
-                <MetricCell label={t('prompt.bench.f1')} value={`${(m.f1_score * 100).toFixed(1)}%`} color={m.f1_score > 0.9 ? 'text-cyber-green' : m.f1_score > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
-                <MetricCell label={t('prompt.bench.precision')} value={`${(m.precision * 100).toFixed(1)}%`} color="text-cyber-text" />
-                <MetricCell label={t('prompt.bench.recall')} value={`${(m.recall * 100).toFixed(1)}%`} color="text-cyber-text" />
-              </div>
+              {m.unlabeled ? (
+                <>
+                  {/* Unlabeled: show detection counts */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <MetricCell label={t('prompt.bench.totalSamples')} value={`${m.total_samples}`} color="text-cyber-text" />
+                    <MetricCell label={t('prompt.bench.detectionRate')} value={`${((m.detection_rate || 0) * 100).toFixed(1)}%`} color="text-cyber-accent" />
+                    <MetricCell label={t('prompt.bench.flagged')} value={`${m.detected_injection || 0}`} color="text-amber-400" />
+                    <MetricCell label={t('prompt.bench.passed')} value={`${m.detected_benign || 0}`} color="text-cyber-green" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Key metrics */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <MetricCell label={t('prompt.bench.accuracy')} value={`${(m.accuracy * 100).toFixed(1)}%`} color={m.accuracy > 0.9 ? 'text-cyber-green' : m.accuracy > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
+                    <MetricCell label={t('prompt.bench.f1')} value={`${(m.f1_score * 100).toFixed(1)}%`} color={m.f1_score > 0.9 ? 'text-cyber-green' : m.f1_score > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
+                    <MetricCell label={t('prompt.bench.precision')} value={`${(m.precision * 100).toFixed(1)}%`} color="text-cyber-text" />
+                    <MetricCell label={t('prompt.bench.recall')} value={`${(m.recall * 100).toFixed(1)}%`} color="text-cyber-text" />
+                  </div>
 
-              {/* Error rates */}
-              <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-cyber-border/30">
-                <MetricCell label={t('prompt.bench.fpr')} value={`${(m.false_positive_rate * 100).toFixed(1)}%`} color="text-amber-400" />
-                <MetricCell label={t('prompt.bench.fnr')} value={`${(m.false_negative_rate * 100).toFixed(1)}%`} color="text-cyber-danger" />
-              </div>
+                  {/* Error rates */}
+                  <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-cyber-border/30">
+                    <MetricCell label={t('prompt.bench.fpr')} value={`${(m.false_positive_rate * 100).toFixed(1)}%`} color="text-amber-400" />
+                    <MetricCell label={t('prompt.bench.fnr')} value={`${(m.false_negative_rate * 100).toFixed(1)}%`} color="text-cyber-danger" />
+                  </div>
 
-              {/* Confusion matrix */}
-              <div className="grid grid-cols-2 gap-1 text-center text-xs mb-4 pt-3 border-t border-cyber-border/30">
-                <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tp}</div><div className="text-cyber-muted">TP</div></div>
-                <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fp}</div><div className="text-cyber-muted">FP</div></div>
-                <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fn}</div><div className="text-cyber-muted">FN</div></div>
-                <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tn}</div><div className="text-cyber-muted">TN</div></div>
-              </div>
+                  {/* Confusion matrix */}
+                  <div className="grid grid-cols-2 gap-1 text-center text-xs mb-4 pt-3 border-t border-cyber-border/30">
+                    <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tp}</div><div className="text-cyber-muted">TP</div></div>
+                    <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fp}</div><div className="text-cyber-muted">FP</div></div>
+                    <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fn}</div><div className="text-cyber-muted">FN</div></div>
+                    <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tn}</div><div className="text-cyber-muted">TN</div></div>
+                  </div>
+                </>
+              )}
 
               {/* Latency */}
               <div className="pt-3 border-t border-cyber-border/30">

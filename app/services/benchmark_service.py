@@ -316,56 +316,95 @@ class BenchmarkService:
         if not self._is_model_available(services, model_name):
             return {"error": f"Model {model_name} not available or not initialized"}
 
+        BATCH_SIZE = 16
         latencies: List[float] = []
         predictions: List[str] = []
         expected_labels: List[str] = []
         details: List[Dict[str, Any]] = []
 
-        for sample in samples:
-            text = sample["text"]
-            expected = sample["expected"]
+        # Use batch inference for non-protectai models
+        use_batch = model_name in ("hikma", "promptguard", "proventra")
 
-            start_time = time.perf_counter()
-            try:
-                result = self._invoke_detector_sync(services, model_name, text, threshold)
-                elapsed_ms = (time.perf_counter() - start_time) * 1000
+        if use_batch:
+            detector = self._get_batch_detector(services, model_name)
+            for i in range(0, len(samples), BATCH_SIZE):
+                batch = samples[i:i + BATCH_SIZE]
+                texts = [s["text"] for s in batch]
+                expecteds = [s["expected"] for s in batch]
 
-                predicted = "injection" if not result.get("is_safe", True) else "benign"
-                score = result.get("score", 0) or result.get("injection_score", 0) or result.get("threat_score", 0)
+                start_time = time.perf_counter()
+                try:
+                    batch_results = detector.detect_batch(texts, threshold=threshold)
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    per_sample_ms = elapsed_ms / len(texts)
 
-                latencies.append(elapsed_ms)
-                predictions.append(predicted)
-                expected_labels.append(expected)
+                    for j, (result, exp) in enumerate(zip(batch_results, expecteds)):
+                        predicted = "injection" if not result.get("is_safe", True) else "benign"
+                        score = result.get("injection_score", 0) or result.get("threat_score", 0)
+                        latencies.append(per_sample_ms)
+                        predictions.append(predicted)
+                        expected_labels.append(exp)
+                        details.append({
+                            "text": texts[j][:80], "expected": exp,
+                            "predicted": predicted, "score": round(score, 4),
+                            "latency_ms": round(per_sample_ms, 1), "correct": predicted == exp,
+                        })
+                except Exception as e:
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    for j, exp in enumerate(expecteds):
+                        latencies.append(elapsed_ms / len(texts))
+                        predictions.append("error")
+                        expected_labels.append(exp)
+                        details.append({
+                            "text": texts[j][:80], "expected": exp,
+                            "predicted": "error", "score": 0,
+                            "latency_ms": round(elapsed_ms / len(texts), 1),
+                            "correct": False, "error": str(e),
+                        })
 
-                details.append({
-                    "text": text[:80],
-                    "expected": expected,
-                    "predicted": predicted,
-                    "score": round(score, 4),
-                    "latency_ms": round(elapsed_ms, 1),
-                    "correct": predicted == expected,
-                })
-
-            except Exception as e:
-                elapsed_ms = (time.perf_counter() - start_time) * 1000
-                latencies.append(elapsed_ms)
-                predictions.append("error")
-                expected_labels.append(expected)
-                details.append({
-                    "text": text[:80],
-                    "expected": expected,
-                    "predicted": "error",
-                    "score": 0,
-                    "latency_ms": round(elapsed_ms, 1),
-                    "correct": False,
-                    "error": str(e),
-                })
-
-            run.progress += 1
+                run.progress += len(batch)
+        else:
+            # ProtectAI: single inference (async model)
+            for sample in samples:
+                text = sample["text"]
+                expected = sample["expected"]
+                start_time = time.perf_counter()
+                try:
+                    result = self._invoke_detector_sync(services, model_name, text, threshold)
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    predicted = "injection" if not result.get("is_safe", True) else "benign"
+                    score = result.get("score", 0) or result.get("injection_score", 0)
+                    latencies.append(elapsed_ms)
+                    predictions.append(predicted)
+                    expected_labels.append(expected)
+                    details.append({
+                        "text": text[:80], "expected": expected,
+                        "predicted": predicted, "score": round(score, 4),
+                        "latency_ms": round(elapsed_ms, 1), "correct": predicted == expected,
+                    })
+                except Exception as e:
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    latencies.append(elapsed_ms)
+                    predictions.append("error")
+                    expected_labels.append(expected)
+                    details.append({
+                        "text": text[:80], "expected": expected,
+                        "predicted": "error", "score": 0,
+                        "latency_ms": round(elapsed_ms, 1), "correct": False, "error": str(e),
+                    })
+                run.progress += 1
 
         metrics = self._compute_metrics(predictions, expected_labels, latencies)
         metrics["details"] = details
         return metrics
+
+    def _get_batch_detector(self, services, model_name: str):
+        detectors = {
+            "hikma": services.hikma_detector,
+            "promptguard": services.promptguard_detector,
+            "proventra": services.proventra_detector,
+        }
+        return detectors[model_name]
 
     def _is_model_available(self, services, model_name: str) -> bool:
         if model_name == "protectai":
@@ -407,6 +446,41 @@ class BenchmarkService:
     def _compute_metrics(
         self, predictions: List[str], expected: List[str], latencies: List[float]
     ) -> Dict[str, Any]:
+        import numpy as np
+
+        # If no labels provided, report detection stats + latency only
+        has_labels = any(e != "unknown" for e in expected)
+        if not has_labels:
+            non_error = [p for p in predictions if p != "error"]
+            if not non_error:
+                return {"error": "All predictions failed"}
+            injection_count = sum(1 for p in non_error if p == "injection")
+            benign_count = sum(1 for p in non_error if p == "benign")
+            lat_arr = np.array(latencies)
+            return {
+                "unlabeled": True,
+                "total_samples": len(non_error),
+                "detected_injection": injection_count,
+                "detected_benign": benign_count,
+                "detection_rate": round(injection_count / len(non_error), 4),
+                "accuracy": 0,
+                "precision": 0,
+                "recall": 0,
+                "f1_score": 0,
+                "false_positive_rate": 0,
+                "false_negative_rate": 0,
+                "confusion_matrix": {"tp": 0, "fp": 0, "tn": 0, "fn": 0},
+                "latency": {
+                    "mean_ms": round(float(lat_arr.mean()), 1),
+                    "median_ms": round(float(np.median(lat_arr)), 1),
+                    "p95_ms": round(float(np.percentile(lat_arr, 95)), 1),
+                    "p99_ms": round(float(np.percentile(lat_arr, 99)), 1),
+                    "min_ms": round(float(lat_arr.min()), 1),
+                    "max_ms": round(float(lat_arr.max()), 1),
+                },
+                "throughput_samples_per_sec": round(len(latencies) / (sum(latencies) / 1000), 1) if sum(latencies) > 0 else 0,
+            }
+
         valid_mask = [(p != "error" and e != "unknown") for p, e in zip(predictions, expected)]
         valid_preds = [p for p, m in zip(predictions, valid_mask) if m]
         valid_expected = [e for e, m in zip(expected, valid_mask) if m]

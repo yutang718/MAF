@@ -56,3 +56,14 @@ export async function deleteBenchmarkRun(runId: string) {
   const { data } = await apiClient.delete(`/benchmark/runs/${runId}`)
   return data
 }
+
+export async function uploadAndRunBenchmark(file: File, models: string[], thresholds: Record<string, number>) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('models', models.join(','))
+  formData.append('thresholds', JSON.stringify(thresholds))
+  const { data } = await apiClient.post('/benchmark/upload-and-run', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}

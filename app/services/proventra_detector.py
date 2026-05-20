@@ -70,3 +70,28 @@ class ProventraDetector:
             "label": predicted_label,
             "confidence": round(float(probs[predicted_idx]), 4),
         }
+
+    def detect_batch(self, texts: list, threshold: float = None) -> list:
+        if not self._initialized:
+            self.initialize()
+        if threshold is None:
+            threshold = self.threshold
+
+        inputs = self.tokenizer(
+            texts, return_tensors="pt", truncation=True,
+            max_length=self.max_length, padding=True,
+        )
+        with torch.no_grad():
+            logits = self.model(**inputs).logits
+        probs = torch.softmax(logits, dim=-1).numpy()
+
+        results = []
+        for i in range(len(texts)):
+            injection_score = float(probs[i][1])
+            is_safe = injection_score < threshold
+            results.append({
+                "is_safe": is_safe,
+                "injection_score": round(injection_score, 4),
+                "label": "SAFE" if is_safe else "INJECTION",
+            })
+        return results

@@ -1,10 +1,11 @@
 """Benchmark API endpoints for prompt injection model evaluation"""
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from core.logging import get_logger
 from core.dependencies import get_services, Services
 from services.benchmark_service import BenchmarkService
+import io
 
 router = APIRouter()
 logger = get_logger("api.endpoints.benchmark")
@@ -94,3 +95,98 @@ async def delete_run(run_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
     del _benchmark_service.runs[run_id]
     return {"status": "deleted", "id": run_id}
+
+
+@router.post("/upload-and-run")
+async def upload_and_run(
+    file: UploadFile = File(...),
+    models: str = Form(...),
+    thresholds: str = Form(default="{}"),
+    services: Services = Depends(get_services),
+) -> Dict[str, Any]:
+    """Upload Excel/CSV file and run benchmark. File must have 'text' column, optionally 'label' column."""
+    import json
+    import pandas as pd
+
+    valid_models = ["protectai", "hikma", "promptguard", "proventra"]
+    model_list = [m.strip() for m in models.split(",") if m.strip()]
+    for m in model_list:
+        if m not in valid_models:
+            raise HTTPException(status_code=400, detail=f"Invalid model: {m}. Valid: {valid_models}")
+
+    try:
+        threshold_dict = json.loads(thresholds)
+    except Exception:
+        threshold_dict = {}
+
+    content = await file.read()
+    filename = file.filename or ""
+
+    try:
+        if filename.endswith(".xlsx") or filename.endswith(".xls"):
+            df = pd.read_excel(io.BytesIO(content), engine="openpyxl")
+        elif filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(content))
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format. Use .xlsx, .xls, or .csv")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+
+    # Find text column (flexible naming)
+    text_col = None
+    for col in ["text", "Text", "TEXT", "prompt", "Prompt", "input", "Input", "content", "Content"]:
+        if col in df.columns:
+            text_col = col
+            break
+    if not text_col:
+        raise HTTPException(status_code=400, detail=f"No text column found. Expected one of: text, prompt, input, content. Found: {list(df.columns)}")
+
+    # Find label column (optional)
+    label_col = None
+    for col in ["label", "Label", "LABEL", "expected", "Expected", "class", "Class", "type", "Type"]:
+        if col in df.columns:
+            label_col = col
+            break
+
+    # Build samples
+    samples = []
+    for _, row in df.iterrows():
+        text = str(row[text_col]).strip()
+        if not text or text == "nan":
+            continue
+        if label_col and pd.notna(row.get(label_col)):
+            raw_label = str(row[label_col]).strip().lower()
+            if raw_label in ("1", "injection", "attack", "malicious", "jailbreak", "unsafe"):
+                expected = "injection"
+            elif raw_label in ("0", "benign", "safe", "normal", "legitimate"):
+                expected = "benign"
+            else:
+                expected = raw_label
+        else:
+            expected = "unknown"
+        samples.append({"text": text[:1024], "expected": expected})
+
+    if not samples:
+        raise HTTPException(status_code=400, detail="No valid samples found in file")
+
+    # Cache the uploaded dataset and start benchmark
+    dataset_id = f"upload/{filename}"
+    _benchmark_service._datasets_cache[f"{dataset_id}:{len(samples)}"] = samples
+
+    run_id = await _benchmark_service.start_benchmark(
+        dataset_id=dataset_id,
+        models=model_list,
+        max_samples=len(samples),
+        thresholds=threshold_dict,
+    )
+
+    return {
+        "run_id": run_id,
+        "status": "started",
+        "dataset_id": dataset_id,
+        "samples_count": len(samples),
+        "has_labels": label_col is not None,
+        "columns_found": list(df.columns),
+    }

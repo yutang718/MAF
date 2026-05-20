@@ -293,9 +293,18 @@ class BenchmarkService:
 
             model_results = {name: result for name, result in results_list}
 
+            benign_count = sum(1 for s in samples if s["expected"] == "benign")
+            injection_count = sum(1 for s in samples if s["expected"] == "injection")
+            unknown_count = sum(1 for s in samples if s["expected"] == "unknown")
+
             run.results = {
                 "dataset": run.dataset_id,
                 "sample_count": len(samples),
+                "sample_distribution": {
+                    "benign": benign_count,
+                    "injection": injection_count,
+                    "unknown": unknown_count,
+                },
                 "thresholds": thresholds or {},
                 "models": model_results,
             }

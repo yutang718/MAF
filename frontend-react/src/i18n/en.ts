@@ -147,6 +147,9 @@ const en: Record<string, string> = {
   'prompt.bench.latency': 'Latency',
   'prompt.bench.mean': 'Mean',
   'prompt.bench.throughput': 'Throughput',
+  'prompt.bench.benignSamples': 'Benign',
+  'prompt.bench.injectionSamples': 'Injection',
+  'prompt.bench.unlabeledSamples': 'Unlabeled',
   'prompt.bench.totalSamples': 'Total Samples',
   'prompt.bench.detectionRate': 'Detection Rate',
   'prompt.bench.flagged': 'Flagged',
@@ -162,6 +165,7 @@ const en: Record<string, string> = {
   'prompt.bench.verdict': 'Recommended Model',
   'prompt.bench.verdictScore': 'Composite Score',
   'prompt.bench.verdictFormula': 'Scoring: F1 (45%) + Low FPR (25%) + Low FNR (25%) + Speed (5%)',
+  'prompt.bench.verdictFormulaUnlabeled': 'Scoring (unlabeled): Detection Sensitivity (50%) + Speed (30%) + Consistency (20%)',
   'prompt.bench.failed': 'Benchmark failed',
 
   // ─── PIIDetectionPage ─────────────────────────────────────────────────────────

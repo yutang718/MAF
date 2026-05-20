@@ -709,6 +709,7 @@ interface BenchmarkModelMetrics {
 
 interface BenchmarkResultsData {
   dataset: string; sample_count: number
+  sample_distribution?: { benign: number; injection: number; unknown: number }
   thresholds: Record<string, number>
   models: Record<string, BenchmarkModelMetrics>
 }
@@ -944,12 +945,17 @@ function BenchmarkTab() {
             <div key={m.key}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-cyber-muted truncate">{m.name.split(' ')[0]}</span>
-                <span className="text-xs font-mono text-cyber-accent">{thresholds[m.key].toFixed(2)}</span>
               </div>
-              <input type="range" min="0.01" max="0.99" step="0.01"
-                value={thresholds[m.key]}
-                onChange={e => setThresholds(prev => ({ ...prev, [m.key]: Number(e.target.value) }))}
-                className="w-full accent-cyber-accent h-1 cursor-pointer" />
+              <div className="flex items-center gap-2">
+                <input type="range" min="0" max="1" step="0.001"
+                  value={thresholds[m.key]}
+                  onChange={e => setThresholds(prev => ({ ...prev, [m.key]: Number(e.target.value) }))}
+                  className="flex-1 accent-cyber-accent h-1 cursor-pointer" />
+                <input type="number" min="0" max="1" step="0.0001"
+                  value={thresholds[m.key]}
+                  onChange={e => { const v = Number(e.target.value); if (v >= 0 && v <= 1) setThresholds(prev => ({ ...prev, [m.key]: v })) }}
+                  className="w-16 bg-cyber-bg border border-cyber-border rounded px-1 py-0.5 text-xs font-mono text-cyber-accent text-center" />
+              </div>
             </div>
           ))}
         </div>
@@ -1080,9 +1086,10 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
   const models = Object.entries(results.models).filter(([, v]) => !v.error)
   const isUnlabeled = models.length > 0 && models[0][1].unlabeled
 
-  // Industry composite score (only for labeled datasets)
+  // Composite scoring
   const scores: Record<string, { composite: number; rank: number }> = {}
   if (models.length > 1 && !isUnlabeled) {
+    // Labeled: F1 45% + (1-FPR) 25% + (1-FNR) 25% + Speed 5%
     const minLatency = Math.min(...models.map(([, m]) => m.latency.mean_ms))
     const ranked = models.map(([key, m]) => {
       const speedScore = Math.log(1 + minLatency) / Math.log(1 + m.latency.mean_ms)
@@ -1090,9 +1097,23 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
       return { key, composite }
     }).sort((a, b) => b.composite - a.composite)
     ranked.forEach((r, i) => { scores[r.key] = { composite: r.composite, rank: i + 1 } })
+  } else if (models.length > 1 && isUnlabeled) {
+    // Unlabeled: moderate detection rate (not too aggressive) 50% + speed 30% + consistency (away from extremes) 20%
+    const minLatency = Math.min(...models.map(([, m]) => m.latency.mean_ms))
+    const rates = models.map(([, m]) => m.detection_rate || 0)
+    const medianRate = [...rates].sort()[Math.floor(rates.length / 2)]
+    const ranked = models.map(([key, m]) => {
+      const rate = m.detection_rate || 0
+      const moderationScore = 1 - Math.abs(rate - medianRate)
+      const speedScore = Math.log(1 + minLatency) / Math.log(1 + m.latency.mean_ms)
+      const rateScore = Math.min(rate * 2, 1)
+      const composite = rateScore * 0.50 + speedScore * 0.30 + moderationScore * 0.20
+      return { key, composite }
+    }).sort((a, b) => b.composite - a.composite)
+    ranked.forEach((r, i) => { scores[r.key] = { composite: r.composite, rank: i + 1 } })
   }
 
-  const winner = !isUnlabeled && models.length > 1 ? Object.entries(scores).find(([, v]) => v.rank === 1)?.[0] : null
+  const winner = models.length > 1 ? Object.entries(scores).find(([, v]) => v.rank === 1)?.[0] : null
 
   return (
     <div className="space-y-4">
@@ -1105,7 +1126,9 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
               <p className="text-sm text-cyber-text mt-1">
                 <span className="font-bold">{modelNames[winner]}</span> — {t('prompt.bench.verdictScore')}: <span className="font-mono text-cyber-green">{(scores[winner].composite * 100).toFixed(1)}</span>
               </p>
-              <p className="text-xs text-cyber-muted mt-2">{t('prompt.bench.verdictFormula')}</p>
+              <p className="text-xs text-cyber-muted mt-2">
+                {isUnlabeled ? t('prompt.bench.verdictFormulaUnlabeled') : t('prompt.bench.verdictFormula')}
+              </p>
             </div>
             <div className="text-right space-y-1">
               {models.map(([key]) => (
@@ -1120,10 +1143,33 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
 
       {/* Summary cards */}
       <div className="panel">
-        <h3 className="text-base font-bold text-cyber-text mb-2">
-          {t('prompt.bench.results')} — {results.sample_count} {t('prompt.bench.samplesLabel')}
-        </h3>
-        <p className="text-sm text-cyber-muted mb-5">{t('prompt.bench.dataset')}: <span className="font-mono text-cyber-text">{results.dataset}</span></p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-bold text-cyber-text">
+              {t('prompt.bench.results')} — {results.sample_count} {t('prompt.bench.samplesLabel')}
+            </h3>
+            <p className="text-xs text-cyber-muted mt-1">{t('prompt.bench.dataset')}: <span className="font-mono text-cyber-text">{results.dataset}</span></p>
+          </div>
+          {results.sample_distribution && (
+            <div className="flex items-center gap-3 text-xs">
+              {results.sample_distribution.benign > 0 && (
+                <span className="px-2 py-1 rounded bg-cyber-green/10 text-cyber-green font-medium">
+                  {t('prompt.bench.benignSamples')}: {results.sample_distribution.benign}
+                </span>
+              )}
+              {results.sample_distribution.injection > 0 && (
+                <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 font-medium">
+                  {t('prompt.bench.injectionSamples')}: {results.sample_distribution.injection}
+                </span>
+              )}
+              {results.sample_distribution.unknown > 0 && (
+                <span className="px-2 py-1 rounded bg-cyber-accent/10 text-cyber-accent font-medium">
+                  {t('prompt.bench.unlabeledSamples')}: {results.sample_distribution.unknown}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Accuracy comparison */}
         <div className={`grid gap-4 ${models.length === 4 ? 'grid-cols-4' : models.length === 3 ? 'grid-cols-3' : models.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>

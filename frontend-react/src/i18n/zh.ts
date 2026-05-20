@@ -147,6 +147,9 @@ const zh: Record<string, string> = {
   'prompt.bench.latency': '延迟',
   'prompt.bench.mean': '平均',
   'prompt.bench.throughput': '吞吐量',
+  'prompt.bench.benignSamples': '正常样本',
+  'prompt.bench.injectionSamples': '攻击样本',
+  'prompt.bench.unlabeledSamples': '未标注',
   'prompt.bench.totalSamples': '总样本数',
   'prompt.bench.detectionRate': '检出率',
   'prompt.bench.flagged': '标记为攻击',
@@ -162,6 +165,7 @@ const zh: Record<string, string> = {
   'prompt.bench.verdict': '推荐模型',
   'prompt.bench.verdictScore': '综合评分',
   'prompt.bench.verdictFormula': '评分权重: F1 (45%) + 低误报率 (25%) + 低漏报率 (25%) + 速度 (5%)',
+  'prompt.bench.verdictFormulaUnlabeled': '评分权重 (无标签): 检出灵敏度 (50%) + 速度 (30%) + 一致性 (20%)',
   'prompt.bench.failed': '测试失败',
 
   // ─── PIIDetectionPage ─────────────────────────────────────────────────────────

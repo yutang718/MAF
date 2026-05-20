@@ -39,6 +39,18 @@ export interface PromptGuardResult {
   }
 }
 
+export interface ProventraResult {
+  model: string
+  text: string
+  is_injection: boolean
+  is_safe: boolean
+  injection_score: number
+  safe_score: number
+  threshold: number
+  label: string
+  confidence: number
+}
+
 export interface ModelInfo {
   id: string
   name: string

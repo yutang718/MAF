@@ -8,6 +8,7 @@ from services.pii_detector import PIIDetector
 from services.prompt_checker import PromptChecker
 from services.hikma_detector import HikmaDetector
 from services.promptguard_detector import PromptGuardDetector
+from services.proventra_detector import ProventraDetector
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
@@ -29,6 +30,7 @@ class Services:
             cls._instance.prompt_checker = PromptChecker(cls._instance.model_manager)
             cls._instance.hikma_detector = HikmaDetector()
             cls._instance.promptguard_detector = PromptGuardDetector()
+            cls._instance.proventra_detector = ProventraDetector()
         return cls._instance
 
     def __init__(self):
@@ -69,6 +71,13 @@ class Services:
                 self.promptguard_detector.initialize()
             except Exception as e:
                 logger.warning(f"Prompt-Guard model unavailable (may require HF auth): {e}")
+
+            # 7. 初始化 Proventra 检测器
+            try:
+                logger.info("Initializing Proventra detector...")
+                self.proventra_detector.initialize()
+            except Exception as e:
+                logger.warning(f"Proventra model unavailable: {e}")
 
             logger.info("All services initialized successfully")
             Services._initialized = True

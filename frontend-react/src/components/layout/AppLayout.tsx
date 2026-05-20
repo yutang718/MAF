@@ -45,7 +45,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {/* Right side - live metrics */}
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-4 text-xs font-mono">
-              <span className="text-cyber-muted">{t('nav.models')}: <span className="text-cyber-text font-semibold">3</span></span>
+              <span className="text-cyber-muted">{t('nav.models')}: <span className="text-cyber-text font-semibold">4</span></span>
               <span className="text-cyber-muted">{t('nav.lang')}: <span className="text-cyber-text font-semibold">100+</span></span>
               <span className="text-cyber-muted">{t('nav.uptime')}: <span className="text-emerald-400 font-semibold">99.9%</span></span>
             </div>

@@ -9,7 +9,8 @@
     @apply bg-cyber-bg text-cyber-text antialiased;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-size: 16px;
-    line-height: 1.65;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
   }
   * {
@@ -136,7 +137,7 @@
   }
 
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-semibold uppercase tracking-wide;
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-bold uppercase tracking-wide;
   }
   .badge-safe {
     @apply badge bg-emerald-500/[0.08] text-emerald-400 border border-emerald-500/20;

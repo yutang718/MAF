@@ -164,7 +164,7 @@ const en: Record<string, string> = {
   'prompt.bench.completed': 'Benchmark completed',
   'prompt.bench.verdict': 'Recommended Model',
   'prompt.bench.verdictScore': 'Composite Score',
-  'prompt.bench.verdictFormula': 'Scoring: F1 (45%) + Low FPR (25%) + Low FNR (25%) + Speed (5%)',
+  'prompt.bench.verdictFormula': 'Scoring: Recall / catches all attacks (55%) + Low FPR / rarely blocks normal (35%) + Speed (10%)',
   'prompt.bench.verdictFormulaUnlabeled': 'Scoring (unlabeled): Detection Sensitivity (50%) + Speed (30%) + Consistency (20%)',
   'prompt.bench.failed': 'Benchmark failed',
 

@@ -1089,11 +1089,11 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
   // Composite scoring
   const scores: Record<string, { composite: number; rank: number }> = {}
   if (models.length > 1 && !isUnlabeled) {
-    // Labeled: F1 45% + (1-FPR) 25% + (1-FNR) 25% + Speed 5%
+    // Labeled: Recall/catch-all-attacks (1-FNR) 55% + low-block-normal (1-FPR) 35% + Speed 10%
     const minLatency = Math.min(...models.map(([, m]) => m.latency.mean_ms))
     const ranked = models.map(([key, m]) => {
       const speedScore = Math.log(1 + minLatency) / Math.log(1 + m.latency.mean_ms)
-      const composite = m.f1_score * 0.45 + (1 - m.false_positive_rate) * 0.25 + (1 - m.false_negative_rate) * 0.25 + speedScore * 0.05
+      const composite = (1 - m.false_negative_rate) * 0.55 + (1 - m.false_positive_rate) * 0.35 + speedScore * 0.10
       return { key, composite }
     }).sort((a, b) => b.composite - a.composite)
     ranked.forEach((r, i) => { scores[r.key] = { composite: r.composite, rank: i + 1 } })

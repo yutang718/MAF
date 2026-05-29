@@ -164,7 +164,7 @@ const zh: Record<string, string> = {
   'prompt.bench.completed': '测试完成',
   'prompt.bench.verdict': '推荐模型',
   'prompt.bench.verdictScore': '综合评分',
-  'prompt.bench.verdictFormula': '评分权重: F1 (45%) + 低误报率 (25%) + 低漏报率 (25%) + 速度 (5%)',
+  'prompt.bench.verdictFormula': '评分权重: 召回率/拦截所有攻击 (55%) + 低误报率/极少拦截正常请求 (35%) + 速度 (10%)',
   'prompt.bench.verdictFormulaUnlabeled': '评分权重 (无标签): 检出灵敏度 (50%) + 速度 (30%) + 一致性 (20%)',
   'prompt.bench.failed': '测试失败',
 

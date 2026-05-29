@@ -947,14 +947,14 @@ function BenchmarkTab() {
                 <span className="text-xs text-cyber-muted truncate">{m.name.split(' ')[0]}</span>
               </div>
               <div className="flex items-center gap-2">
-                <input type="range" min="0" max="1" step="0.001"
+                <input type="range" min="0" max="1" step="0.0000001"
                   value={thresholds[m.key]}
                   onChange={e => setThresholds(prev => ({ ...prev, [m.key]: Number(e.target.value) }))}
                   className="flex-1 accent-cyber-accent h-1 cursor-pointer" />
-                <input type="number" min="0" max="1" step="0.0001"
+                <input type="number" min="0" max="1" step="0.0000001"
                   value={thresholds[m.key]}
                   onChange={e => { const v = Number(e.target.value); if (v >= 0 && v <= 1) setThresholds(prev => ({ ...prev, [m.key]: v })) }}
-                  className="w-16 bg-cyber-bg border border-cyber-border rounded px-1 py-0.5 text-xs font-mono text-cyber-accent text-center" />
+                  className="w-24 bg-cyber-bg border border-cyber-border rounded px-1 py-0.5 text-xs font-mono text-cyber-accent text-center" />
               </div>
             </div>
           ))}
@@ -1181,7 +1181,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
               </div>
               {/* Threshold used */}
               <p className="text-xs text-cyber-muted mb-4">
-                {t('prompt.bench.threshold')}: <span className="font-mono text-cyber-accent">{(results.thresholds?.[key] ?? 0.5).toFixed(2)}</span>
+                {t('prompt.bench.threshold')}: <span className="font-mono text-cyber-accent">{parseFloat((results.thresholds?.[key] ?? 0.5).toFixed(7))}</span>
               </p>
 
               {m.unlabeled ? (

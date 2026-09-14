@@ -102,6 +102,21 @@ Once the application is running, visit:
 
 ## Running the Application
 
+### Docker (single image, frontend + backend)
+
+```bash
+docker compose up --build -d
+```
+
+The React frontend and FastAPI backend are packaged into one image. FastAPI serves the
+built frontend from `/app/static` with SPA fallback, and the API under `/api/v1`.
+
+- Web UI + API: http://localhost:8080
+- API only (legacy port): http://localhost:8000
+- OpenAPI docs: http://localhost:8080/docs
+
+### Local development
+
 1. Start the Backend Server:
 ```bash
 ./server.sh

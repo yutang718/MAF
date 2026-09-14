@@ -1,0 +1,16 @@
+.git
+.github
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+docs
+data
+frontend
+frontend-react/node_modules
+frontend-react/dist
+app/logs
+app/model_cache
+app/tests
+app/.pytest_cache

@@ -1,10 +1,11 @@
 services:
-  backend:
+  maf:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8080:8000"   # Web UI + API on one port
+      - "8000:8000"   # Kept for existing API clients
     environment:
       - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
       - HF_TOKEN=${HUGGINGFACE_TOKEN:-}
@@ -28,16 +29,6 @@ services:
       timeout: 10s
       retries: 10
       start_period: 300s
-
-  frontend:
-    build:
-      context: ./frontend-react
-      dockerfile: Dockerfile
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
 
 volumes:
   model_cache:

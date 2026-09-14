@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { detectPrompt, detectHikma, detectPromptGuard, detectProventra, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun, uploadAndRunBenchmark } from '../api/prompt'
+import { detectPrompt, detectHikma, detectPromptGuard, detectProventra, detectModernGuard, detectWolfDefender, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun, uploadAndRunBenchmark } from '../api/prompt'
 import type { DetectionResult, HikmaResult, PromptGuardResult, ProventraResult } from '../types/prompt'
 import { useTranslation } from '../i18n/context'
 
@@ -65,6 +65,8 @@ export default function PromptInjectionPage() {
   const [hikmaConfig, setHikmaConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
   const [guardConfig, setGuardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: '3-class' })
   const [proventraConfig, setProventraConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
+  const [modernguardConfig, setModernguardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
+  const [wolfConfig, setWolfConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
 
   // Determine which tab is active by index
   const tabIndex = tabs.indexOf(activeTab)
@@ -99,6 +101,8 @@ export default function PromptInjectionPage() {
           hikmaConfig={hikmaConfig} setHikmaConfig={setHikmaConfig}
           guardConfig={guardConfig} setGuardConfig={setGuardConfig}
           proventraConfig={proventraConfig} setProventraConfig={setProventraConfig}
+          modernguardConfig={modernguardConfig} setModernguardConfig={setModernguardConfig}
+          wolfConfig={wolfConfig} setWolfConfig={setWolfConfig}
         />
       )}
       {effectiveIndex === 1 && <AvailableModelsTab />}
@@ -108,6 +112,8 @@ export default function PromptInjectionPage() {
           hikmaConfig={hikmaConfig}
           guardConfig={guardConfig}
           proventraConfig={proventraConfig}
+          modernguardConfig={modernguardConfig}
+          wolfConfig={wolfConfig}
         />
       )}
       <div className={effectiveIndex === 3 ? '' : 'hidden'}>
@@ -124,11 +130,15 @@ function AnalysisTab({
   hikmaConfig, setHikmaConfig,
   guardConfig, setGuardConfig,
   proventraConfig, setProventraConfig,
+  modernguardConfig, setModernguardConfig,
+  wolfConfig, setWolfConfig,
 }: {
   protectConfig: ModelConfig; setProtectConfig: (c: ModelConfig) => void
   hikmaConfig: ModelConfig; setHikmaConfig: (c: ModelConfig) => void
   guardConfig: ModelConfig; setGuardConfig: (c: ModelConfig) => void
   proventraConfig: ModelConfig; setProventraConfig: (c: ModelConfig) => void
+  modernguardConfig: ModelConfig; setModernguardConfig: (c: ModelConfig) => void
+  wolfConfig: ModelConfig; setWolfConfig: (c: ModelConfig) => void
 }) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -137,6 +147,8 @@ function AnalysisTab({
   const [hikmaResult, setHikmaResult] = useState<HikmaResult | null>(null)
   const [guardResult, setGuardResult] = useState<PromptGuardResult | null>(null)
   const [proventraResult, setProventraResult] = useState<ProventraResult | null>(null)
+  const [modernguardResult, setModernguardResult] = useState<ProventraResult | null>(null)
+  const [wolfResult, setWolfResult] = useState<ProventraResult | null>(null)
   const [errors, setErrors] = useState<string[]>([])
 
   const run = async () => {
@@ -147,6 +159,8 @@ function AnalysisTab({
     setHikmaResult(null)
     setGuardResult(null)
     setProventraResult(null)
+    setModernguardResult(null)
+    setWolfResult(null)
 
     const promises: Promise<unknown>[] = []
     const indices: number[] = []
@@ -155,6 +169,8 @@ function AnalysisTab({
     if (hikmaConfig.enabled) { promises.push(detectHikma(text, hikmaConfig.threshold)); indices.push(1) }
     if (guardConfig.enabled) { promises.push(detectPromptGuard(text, guardConfig.threshold)); indices.push(2) }
     if (proventraConfig.enabled) { promises.push(detectProventra(text, proventraConfig.threshold)); indices.push(3) }
+    if (modernguardConfig.enabled) { promises.push(detectModernGuard(text, modernguardConfig.threshold)); indices.push(4) }
+    if (wolfConfig.enabled) { promises.push(detectWolfDefender(text, wolfConfig.threshold)); indices.push(5) }
 
     const results = await Promise.allSettled(promises)
 
@@ -165,8 +181,10 @@ function AnalysisTab({
         if (modelIdx === 1) setHikmaResult(r.value as HikmaResult)
         if (modelIdx === 2) setGuardResult(r.value as PromptGuardResult)
         if (modelIdx === 3) setProventraResult(r.value as ProventraResult)
+        if (modelIdx === 4) setModernguardResult(r.value as ProventraResult)
+        if (modelIdx === 5) setWolfResult(r.value as ProventraResult)
       } else {
-        const names = ['ProtectAI', 'HikmaAI', 'Prompt-Guard', 'Proventra']
+        const names = ['ProtectAI', 'HikmaAI', 'Prompt-Guard', 'Proventra', 'ModernGuard', 'Wolf Defender']
         setErrors(prev => [...prev, `${names[modelIdx]}: ${String(r.reason)}`])
       }
     })
@@ -174,14 +192,14 @@ function AnalysisTab({
     setLoading(false)
   }
 
-  const enabledCount = [protectConfig.enabled, hikmaConfig.enabled, guardConfig.enabled, proventraConfig.enabled].filter(Boolean).length
+  const enabledCount = [protectConfig.enabled, hikmaConfig.enabled, guardConfig.enabled, proventraConfig.enabled, modernguardConfig.enabled, wolfConfig.enabled].filter(Boolean).length
 
   return (
     <div className="space-y-5">
       {/* Model Configuration Panel */}
       <div className="panel">
         <h3 className="text-base font-semibold text-cyber-text mb-5">{t('prompt.modelParams')}</h3>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {/* ProtectAI Config */}
           <ModelConfigCard
             name="ProtectAI DeBERTa v3"
@@ -228,6 +246,24 @@ function AnalysisTab({
             onChange={setProventraConfig}
             thresholdLabel={t('prompt.injectionThreshold')}
           />
+
+          {/* ModernGuard-1 Config */}
+          <ModelConfigCard
+            name="ModernGuard-1"
+            tag="1080 Languages · 8k ctx"
+            config={modernguardConfig}
+            onChange={setModernguardConfig}
+            thresholdLabel={t('prompt.injectionThreshold')}
+          />
+
+          {/* Wolf Defender Config */}
+          <ModelConfigCard
+            name="Wolf Defender v2"
+            tag="Multilingual · Low FPR"
+            config={wolfConfig}
+            onChange={setWolfConfig}
+            thresholdLabel={t('prompt.injectionThreshold')}
+          />
         </div>
       </div>
 
@@ -251,8 +287,8 @@ function AnalysisTab({
       )}
 
       {/* Results */}
-      {(protectResult || hikmaResult || guardResult || proventraResult) && (
-        <div className={`grid gap-4 ${enabledCount >= 3 ? 'grid-cols-4' : enabledCount === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-md'}`}>
+      {(protectResult || hikmaResult || guardResult || proventraResult || modernguardResult || wolfResult) && (
+        <div className={`grid gap-4 ${enabledCount >= 3 ? 'grid-cols-3' : enabledCount === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-md'}`}>
           {protectConfig.enabled && protectResult && (
             <ModelResultCard
               title="ProtectAI DeBERTa v3"
@@ -311,6 +347,28 @@ function AnalysisTab({
               score={proventraResult.injection_score}
               scoreLabel={t('prompt.injectionScore')}
               threshold={proventraConfig.threshold}
+            />
+          )}
+
+          {modernguardConfig.enabled && modernguardResult && (
+            <ModelResultCard
+              title="ModernGuard-1"
+              safe={modernguardResult.is_safe}
+              label={modernguardResult.label}
+              score={modernguardResult.injection_score}
+              scoreLabel={t('prompt.injectionScore')}
+              threshold={modernguardConfig.threshold}
+            />
+          )}
+
+          {wolfConfig.enabled && wolfResult && (
+            <ModelResultCard
+              title="Wolf Defender v2"
+              safe={wolfResult.is_safe}
+              label={wolfResult.label}
+              score={wolfResult.injection_score}
+              scoreLabel={t('prompt.injectionScore')}
+              threshold={wolfConfig.threshold}
             />
           )}
         </div>
@@ -482,6 +540,44 @@ function AvailableModelsTab() {
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
+
+        <ModelInfoCard
+          name="ModernGuard-1"
+          modelId="guardion/ModernGuard-1"
+          specs={[
+            [t('prompt.architecture'), 'ModernBERT / mmBERT-base (~307M params)'],
+            [t('prompt.runtime'), 'PyTorch (Safetensors)'],
+            [t('prompt.modelLanguages'), '1,080 (fine-tuned on 11 incl. ZH, AR, JA)'],
+            [t('prompt.classes'), '2 — Safe / Injection'],
+            [t('prompt.size'), '~1.2 GB'],
+            [t('prompt.f1Score'), '0.963 (vendor leaderboard, Jan 2026)'],
+            [t('prompt.license'), 'Apache-2.0'],
+            [t('prompt.maxTokens'), '8192 (2048 used)'],
+          ]}
+          strengths={['Long context — scans whole RAG documents without chunking', 'Covers direct jailbreaks and indirect (data) injections', 'Energy-based loss — low FPR on out-of-distribution text', 'Gemma-2 tokenizer resists unicode / whitespace obfuscation']}
+          limitations={['Vendor-reported benchmarks only (Jan 2026)', 'Largest model in the set — slower on CPU', 'No explicit Malay fine-tuning data']}
+          strengthsLabel={t('prompt.strengths')}
+          limitationsLabel={t('prompt.limitations')}
+        />
+
+        <ModelInfoCard
+          name="Wolf Defender v2"
+          modelId="patronus-studio/wolf-defender-prompt-injection"
+          specs={[
+            [t('prompt.architecture'), 'ModernBERT / mmBERT-base'],
+            [t('prompt.runtime'), 'PyTorch (ONNX FP16/INT8 also available)'],
+            [t('prompt.modelLanguages'), 'Multilingual (mmBERT backbone; EN/DE primary)'],
+            [t('prompt.classes'), '2 — Benign / Injection'],
+            [t('prompt.size'), '~1.2 GB'],
+            [t('prompt.f1Score'), '0.951 Qualifire / 0.978 Jayavibhav'],
+            [t('prompt.license'), 'Apache-2.0'],
+            [t('prompt.maxTokens'), '2048'],
+          ]}
+          strengths={['Tuned for low false positives — 96% specificity on hard benign text', 'Published cross-model comparison incl. Sentinel v1/v2', 'Ships FP16 / INT8 ONNX variants for on-device use', '2k context — handles long documents']}
+          limitations={['Trades some recall for precision (clean F1 98.4%)', 'Tokenizer config targets transformers v5 (loaded via fallback)', 'Training data mostly EN / DE']}
+          strengthsLabel={t('prompt.strengths')}
+          limitationsLabel={t('prompt.limitations')}
+        />
       </div>
     </div>
   )
@@ -544,8 +640,9 @@ function ModelInfoCard({ name, modelId, specs, strengths, limitations, strengths
 
 // ─── Batch Evaluation Tab ────────────────────────────────────────────────────
 
-function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraConfig }: {
+function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraConfig, modernguardConfig, wolfConfig }: {
   protectConfig: ModelConfig; hikmaConfig: ModelConfig; guardConfig: ModelConfig; proventraConfig: ModelConfig
+  modernguardConfig: ModelConfig; wolfConfig: ModelConfig
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
@@ -555,13 +652,15 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraCon
     hLabel: string; hScore: number
     gLabel: string; gScore: number
     vLabel: string; vScore: number
+    mLabel: string; mScore: number
+    wLabel: string; wScore: number
   }>>([])
 
   const run = async () => {
     setLoading(true)
     const out = []
     for (const s of batchSamples) {
-      const row = { text: s.text, expected: s.label, lang: s.lang, category: s.category, pLabel: '-', pScore: 0, hLabel: '-', hScore: 0, gLabel: '-', gScore: 0, vLabel: '-', vScore: 0 }
+      const row = { text: s.text, expected: s.label, lang: s.lang, category: s.category, pLabel: '-', pScore: 0, hLabel: '-', hScore: 0, gLabel: '-', gScore: 0, vLabel: '-', vScore: 0, mLabel: '-', mScore: 0, wLabel: '-', wScore: 0 }
 
       const promises: Promise<unknown>[] = []
       const keys: string[] = []
@@ -570,6 +669,8 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraCon
       if (hikmaConfig.enabled) { promises.push(detectHikma(s.text, hikmaConfig.threshold)); keys.push('h') }
       if (guardConfig.enabled) { promises.push(detectPromptGuard(s.text, guardConfig.threshold)); keys.push('g') }
       if (proventraConfig.enabled) { promises.push(detectProventra(s.text, proventraConfig.threshold)); keys.push('v') }
+      if (modernguardConfig.enabled) { promises.push(detectModernGuard(s.text, modernguardConfig.threshold)); keys.push('m') }
+      if (wolfConfig.enabled) { promises.push(detectWolfDefender(s.text, wolfConfig.threshold)); keys.push('w') }
 
       const settled = await Promise.allSettled(promises)
       settled.forEach((r, idx) => {
@@ -580,11 +681,15 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraCon
           if (keys[idx] === 'h') { row.hLabel = (v.label as string).toLowerCase(); row.hScore = v.injection_score }
           if (keys[idx] === 'g') { row.gLabel = (v.label as string).toLowerCase(); row.gScore = v.threat_score }
           if (keys[idx] === 'v') { row.vLabel = (v.label as string).toLowerCase(); row.vScore = v.injection_score }
+          if (keys[idx] === 'm') { row.mLabel = (v.label as string).toLowerCase(); row.mScore = v.injection_score }
+          if (keys[idx] === 'w') { row.wLabel = (v.label as string).toLowerCase(); row.wScore = v.injection_score }
         } else {
           if (keys[idx] === 'p') row.pLabel = 'error'
           if (keys[idx] === 'h') row.hLabel = 'error'
           if (keys[idx] === 'g') row.gLabel = 'error'
           if (keys[idx] === 'v') row.vLabel = 'error'
+          if (keys[idx] === 'm') row.mLabel = 'error'
+          if (keys[idx] === 'w') row.wLabel = 'error'
         }
       })
 
@@ -594,7 +699,7 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraCon
     setLoading(false)
   }
 
-  const enabledCount = [protectConfig.enabled, hikmaConfig.enabled, guardConfig.enabled, proventraConfig.enabled].filter(Boolean).length
+  const enabledCount = [protectConfig.enabled, hikmaConfig.enabled, guardConfig.enabled, proventraConfig.enabled, modernguardConfig.enabled, wolfConfig.enabled].filter(Boolean).length
 
   return (
     <div className="space-y-5">
@@ -624,6 +729,8 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraCon
               {hikmaConfig.enabled && <th className="table-header">HikmaAI</th>}
               {guardConfig.enabled && <th className="table-header">Prompt-Guard</th>}
               {proventraConfig.enabled && <th className="table-header">Proventra</th>}
+              {modernguardConfig.enabled && <th className="table-header">ModernGuard</th>}
+              {wolfConfig.enabled && <th className="table-header">Wolf</th>}
             </tr></thead>
             <tbody>
               {results.map((r, i) => (
@@ -663,6 +770,22 @@ function BatchEvaluation({ protectConfig, hikmaConfig, guardConfig, proventraCon
                       <div className="flex items-center gap-2">
                         <Badge v={r.vLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.vScore.toFixed(3)}</span>
+                      </div>
+                    </td>
+                  )}
+                  {modernguardConfig.enabled && (
+                    <td className="table-cell">
+                      <div className="flex items-center gap-2">
+                        <Badge v={r.mLabel} />
+                        <span className="text-xs font-mono text-cyber-muted">{r.mScore.toFixed(3)}</span>
+                      </div>
+                    </td>
+                  )}
+                  {wolfConfig.enabled && (
+                    <td className="table-cell">
+                      <div className="flex items-center gap-2">
+                        <Badge v={r.wLabel} />
+                        <span className="text-xs font-mono text-cyber-muted">{r.wScore.toFixed(3)}</span>
                       </div>
                     </td>
                   )}
@@ -759,9 +882,9 @@ function BenchmarkTab() {
   const saved = useRef(loadBenchState())
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
   const [selectedDataset, setSelectedDataset] = useState<string>('')
-  const [selectedModels, setSelectedModels] = useState<string[]>(saved.current?.selectedModels || ['protectai', 'hikma', 'promptguard', 'proventra'])
+  const [selectedModels, setSelectedModels] = useState<string[]>(saved.current?.selectedModels || ['protectai', 'hikma', 'promptguard', 'proventra', 'modernguard', 'wolfdefender'])
   const [maxSamples, setMaxSamples] = useState(saved.current?.maxSamples || 200)
-  const [thresholds, setThresholds] = useState<Record<string, number>>(saved.current?.thresholds || { protectai: 0.7, hikma: 0.5, promptguard: 0.5, proventra: 0.5 })
+  const [thresholds, setThresholds] = useState<Record<string, number>>({ protectai: 0.7, hikma: 0.5, promptguard: 0.5, proventra: 0.5, modernguard: 0.5, wolfdefender: 0.5, ...(saved.current?.thresholds || {}) })
   const [loading, setLoading] = useState(false)
   const [runs, setRuns] = useState<BenchmarkRunResult[]>(saved.current?.runs || [])
   const [notification, setNotification] = useState<string | null>(null)
@@ -772,6 +895,8 @@ function BenchmarkTab() {
     { key: 'hikma', name: 'HikmaAI mDeBERTa v3', defaultThreshold: 0.5 },
     { key: 'promptguard', name: 'Meta Prompt-Guard-86M', defaultThreshold: 0.5 },
     { key: 'proventra', name: 'Proventra mDeBERTa v3', defaultThreshold: 0.5 },
+    { key: 'modernguard', name: 'ModernGuard-1', defaultThreshold: 0.5 },
+    { key: 'wolfdefender', name: 'Wolf Defender v2', defaultThreshold: 0.5 },
   ]
 
   // Persist state to localStorage
@@ -1081,6 +1206,8 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
     hikma: 'HikmaAI mDeBERTa v3',
     promptguard: 'Meta Prompt-Guard-86M',
     proventra: 'Proventra mDeBERTa v3',
+    modernguard: 'ModernGuard-1',
+    wolfdefender: 'Wolf Defender v2',
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)

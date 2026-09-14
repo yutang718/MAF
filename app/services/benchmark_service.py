@@ -332,7 +332,7 @@ class BenchmarkService:
         details: List[Dict[str, Any]] = []
 
         # Use batch inference for non-protectai models
-        use_batch = model_name in ("hikma", "promptguard", "proventra")
+        use_batch = model_name in self._detectors(services)
 
         if use_batch:
             detector = self._get_batch_detector(services, model_name)
@@ -407,22 +407,25 @@ class BenchmarkService:
         metrics["details"] = details
         return metrics
 
-    def _get_batch_detector(self, services, model_name: str):
-        detectors = {
+    @staticmethod
+    def _detectors(services) -> Dict[str, Any]:
+        """Model key -> detector instance for all non-protectai models"""
+        return {
             "hikma": services.hikma_detector,
             "promptguard": services.promptguard_detector,
             "proventra": services.proventra_detector,
+            "modernguard": services.modernguard_detector,
+            "wolfdefender": services.wolfdefender_detector,
         }
+
+    def _get_batch_detector(self, services, model_name: str):
+        detectors = self._detectors(services)
         return detectors[model_name]
 
     def _is_model_available(self, services, model_name: str) -> bool:
         if model_name == "protectai":
             return bool(services.model_manager.models)
-        detectors = {
-            "hikma": services.hikma_detector,
-            "promptguard": services.promptguard_detector,
-            "proventra": services.proventra_detector,
-        }
+        detectors = self._detectors(services)
         detector = detectors.get(model_name)
         return detector is not None and getattr(detector, '_initialized', False)
 
@@ -442,11 +445,7 @@ class BenchmarkService:
             if threshold is not None:
                 result["is_safe"] = result.get("score", 0) < threshold
             return result
-        detectors = {
-            "hikma": services.hikma_detector,
-            "promptguard": services.promptguard_detector,
-            "proventra": services.proventra_detector,
-        }
+        detectors = self._detectors(services)
         detector = detectors[model_name]
         if threshold is not None:
             return detector.detect(text, threshold=threshold)

@@ -21,6 +21,16 @@ export async function detectProventra(text: string, threshold: number = 0.5): Pr
   return data
 }
 
+export async function detectModernGuard(text: string, threshold: number = 0.5): Promise<ProventraResult> {
+  const { data } = await apiClient.post('/modernguard/detect', { text, threshold })
+  return data
+}
+
+export async function detectWolfDefender(text: string, threshold: number = 0.5): Promise<ProventraResult> {
+  const { data } = await apiClient.post('/wolfdefender/detect', { text, threshold })
+  return data
+}
+
 export async function getModels(): Promise<ModelsResponse> {
   const { data } = await apiClient.get('/prompt/models')
   return data

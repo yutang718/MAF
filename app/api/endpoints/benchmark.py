@@ -18,11 +18,16 @@ class ModelThresholds(BaseModel):
     hikma: float = Field(default=0.5, ge=0.0, le=1.0)
     promptguard: float = Field(default=0.5, ge=0.0, le=1.0)
     proventra: float = Field(default=0.5, ge=0.0, le=1.0)
+    modernguard: float = Field(default=0.5, ge=0.0, le=1.0)
+    wolfdefender: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+VALID_MODELS = ["protectai", "hikma", "promptguard", "proventra", "modernguard", "wolfdefender"]
 
 
 class BenchmarkRequest(BaseModel):
     dataset_id: str = Field(..., description="HuggingFace dataset ID")
-    models: List[str] = Field(..., description="Model keys to benchmark: protectai, hikma, promptguard, proventra")
+    models: List[str] = Field(..., description="Model keys to benchmark: protectai, hikma, promptguard, proventra, modernguard, wolfdefender")
     max_samples: int = Field(default=200, ge=10, le=1000)
     thresholds: ModelThresholds = Field(default_factory=ModelThresholds)
 
@@ -45,7 +50,7 @@ async def start_benchmark(
     request: BenchmarkRequest,
     services: Services = Depends(get_services),
 ) -> Dict[str, Any]:
-    valid_models = ["protectai", "hikma", "promptguard", "proventra"]
+    valid_models = VALID_MODELS
     for m in request.models:
         if m not in valid_models:
             raise HTTPException(status_code=400, detail=f"Invalid model: {m}. Valid: {valid_models}")
@@ -55,6 +60,8 @@ async def start_benchmark(
         "hikma": request.thresholds.hikma,
         "promptguard": request.thresholds.promptguard,
         "proventra": request.thresholds.proventra,
+        "modernguard": request.thresholds.modernguard,
+        "wolfdefender": request.thresholds.wolfdefender,
     }
     run_id = await _benchmark_service.start_benchmark(
         dataset_id=request.dataset_id,
@@ -108,7 +115,7 @@ async def upload_and_run(
     import json
     import pandas as pd
 
-    valid_models = ["protectai", "hikma", "promptguard", "proventra"]
+    valid_models = VALID_MODELS
     model_list = [m.strip() for m in models.split(",") if m.strip()]
     for m in model_list:
         if m not in valid_models:

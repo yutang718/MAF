@@ -1,7 +1,7 @@
 """API路由主入口"""
 from fastapi import APIRouter
 # 避免循环导入
-from api.endpoints import prompt, pii, islamic, hikma, promptguard, proventra, benchmark
+from api.endpoints import prompt, pii, islamic, hikma, promptguard, proventra, mmbert_guards, benchmark
 
 # 创建主路由实例
 api_router = APIRouter()
@@ -41,6 +41,18 @@ api_router.include_router(
     proventra.router,
     prefix="/proventra",
     tags=["proventra"]
+)
+
+api_router.include_router(
+    mmbert_guards.modernguard_router,
+    prefix="/modernguard",
+    tags=["modernguard"]
+)
+
+api_router.include_router(
+    mmbert_guards.wolfdefender_router,
+    prefix="/wolfdefender",
+    tags=["wolfdefender"]
 )
 
 api_router.include_router(

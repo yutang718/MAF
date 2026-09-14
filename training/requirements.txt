@@ -1,0 +1,3 @@
+# pip install -r app/requirements.txt -r training/requirements.txt
+accelerate>=0.26.0
+scikit-learn>=1.3

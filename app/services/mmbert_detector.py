@@ -16,6 +16,25 @@ _MMBERT_SPECIAL_TOKENS = dict(
 )
 
 
+def load_tokenizer(model_id: str, name: str = "mmBERT"):
+    """AutoTokenizer with a fallback for repos shipping a transformers-v5 tokenizer_config.json."""
+    from transformers import AutoTokenizer, PreTrainedTokenizerFast
+    try:
+        return AutoTokenizer.from_pretrained(model_id)
+    except (ValueError, AttributeError) as e:
+        # Build the fast tokenizer directly from tokenizer.json with the standard
+        # mmBERT (Gemma-2) special tokens.
+        logger.warning(f"{name}: AutoTokenizer failed ({e}); falling back to tokenizer.json")
+        from huggingface_hub import hf_hub_download
+        import os
+        tok_file = os.path.join(model_id, "tokenizer.json") if os.path.isdir(model_id) \
+            else hf_hub_download(model_id, "tokenizer.json")
+        return PreTrainedTokenizerFast(
+            tokenizer_file=tok_file,
+            model_max_length=8192, padding_side="right", **_MMBERT_SPECIAL_TOKENS,
+        )
+
+
 class MmBertInjectionDetector:
     """Binary (safe/injection) detector built on an mmBERT-base ModernBERT classifier.
 
@@ -31,20 +50,6 @@ class MmBertInjectionDetector:
         self.threshold = threshold
         self.max_length = max_length
 
-    def _load_tokenizer(self):
-        from transformers import AutoTokenizer, PreTrainedTokenizerFast
-        try:
-            return AutoTokenizer.from_pretrained(self.MODEL_ID)
-        except (ValueError, AttributeError) as e:
-            # Repo ships a v5-format tokenizer_config.json; build the fast tokenizer directly
-            # from tokenizer.json with the standard mmBERT (Gemma-2) special tokens.
-            logger.warning(f"{self.name}: AutoTokenizer failed ({e}); falling back to tokenizer.json")
-            from huggingface_hub import hf_hub_download
-            return PreTrainedTokenizerFast(
-                tokenizer_file=hf_hub_download(self.MODEL_ID, "tokenizer.json"),
-                model_max_length=8192, padding_side="right", **_MMBERT_SPECIAL_TOKENS,
-            )
-
     def initialize(self) -> None:
         if self._initialized:
             return
@@ -52,7 +57,7 @@ class MmBertInjectionDetector:
             logger.info(f"Loading {self.name} model: {self.MODEL_ID}")
             from transformers import AutoModelForSequenceClassification
 
-            self.tokenizer = self._load_tokenizer()
+            self.tokenizer = load_tokenizer(self.MODEL_ID, self.name)
             self.model = AutoModelForSequenceClassification.from_pretrained(self.MODEL_ID)
             self.model.eval()
             self._initialized = True

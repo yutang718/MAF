@@ -331,77 +331,43 @@ class BenchmarkService:
         expected_labels: List[str] = []
         details: List[Dict[str, Any]] = []
 
-        # Use batch inference for non-protectai models
-        use_batch = model_name in self._detectors(services)
+        detector = self._detectors(services)[model_name]
+        for i in range(0, len(samples), BATCH_SIZE):
+            batch = samples[i:i + BATCH_SIZE]
+            texts = [s["text"] for s in batch]
+            expecteds = [s["expected"] for s in batch]
 
-        if use_batch:
-            detector = self._get_batch_detector(services, model_name)
-            for i in range(0, len(samples), BATCH_SIZE):
-                batch = samples[i:i + BATCH_SIZE]
-                texts = [s["text"] for s in batch]
-                expecteds = [s["expected"] for s in batch]
+            start_time = time.perf_counter()
+            try:
+                batch_results = detector.detect_batch(texts, threshold=threshold)
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                per_sample_ms = elapsed_ms / len(texts)
 
-                start_time = time.perf_counter()
-                try:
-                    batch_results = detector.detect_batch(texts, threshold=threshold)
-                    elapsed_ms = (time.perf_counter() - start_time) * 1000
-                    per_sample_ms = elapsed_ms / len(texts)
-
-                    for j, (result, exp) in enumerate(zip(batch_results, expecteds)):
-                        predicted = "injection" if not result.get("is_safe", True) else "benign"
-                        score = result.get("injection_score", 0) or result.get("threat_score", 0)
-                        latencies.append(per_sample_ms)
-                        predictions.append(predicted)
-                        expected_labels.append(exp)
-                        details.append({
-                            "text": texts[j][:80], "expected": exp,
-                            "predicted": predicted, "score": round(score, 4),
-                            "latency_ms": round(per_sample_ms, 1), "correct": predicted == exp,
-                        })
-                except Exception as e:
-                    elapsed_ms = (time.perf_counter() - start_time) * 1000
-                    for j, exp in enumerate(expecteds):
-                        latencies.append(elapsed_ms / len(texts))
-                        predictions.append("error")
-                        expected_labels.append(exp)
-                        details.append({
-                            "text": texts[j][:80], "expected": exp,
-                            "predicted": "error", "score": 0,
-                            "latency_ms": round(elapsed_ms / len(texts), 1),
-                            "correct": False, "error": str(e),
-                        })
-
-                run.progress += len(batch)
-        else:
-            # ProtectAI: single inference (async model)
-            for sample in samples:
-                text = sample["text"]
-                expected = sample["expected"]
-                start_time = time.perf_counter()
-                try:
-                    result = self._invoke_detector_sync(services, model_name, text, threshold)
-                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                for j, (result, exp) in enumerate(zip(batch_results, expecteds)):
                     predicted = "injection" if not result.get("is_safe", True) else "benign"
-                    score = result.get("score", 0) or result.get("injection_score", 0)
-                    latencies.append(elapsed_ms)
+                    score = result.get("injection_score", 0) or result.get("threat_score", 0)
+                    latencies.append(per_sample_ms)
                     predictions.append(predicted)
-                    expected_labels.append(expected)
+                    expected_labels.append(exp)
                     details.append({
-                        "text": text[:80], "expected": expected,
+                        "text": texts[j][:80], "expected": exp,
                         "predicted": predicted, "score": round(score, 4),
-                        "latency_ms": round(elapsed_ms, 1), "correct": predicted == expected,
+                        "latency_ms": round(per_sample_ms, 1), "correct": predicted == exp,
                     })
-                except Exception as e:
-                    elapsed_ms = (time.perf_counter() - start_time) * 1000
-                    latencies.append(elapsed_ms)
+            except Exception as e:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                for j, exp in enumerate(expecteds):
+                    latencies.append(elapsed_ms / len(texts))
                     predictions.append("error")
-                    expected_labels.append(expected)
+                    expected_labels.append(exp)
                     details.append({
-                        "text": text[:80], "expected": expected,
+                        "text": texts[j][:80], "expected": exp,
                         "predicted": "error", "score": 0,
-                        "latency_ms": round(elapsed_ms, 1), "correct": False, "error": str(e),
+                        "latency_ms": round(elapsed_ms / len(texts), 1),
+                        "correct": False, "error": str(e),
                     })
-                run.progress += 1
+
+            run.progress += len(batch)
 
         metrics = self._compute_metrics(predictions, expected_labels, latencies)
         metrics["details"] = details
@@ -409,48 +375,17 @@ class BenchmarkService:
 
     @staticmethod
     def _detectors(services) -> Dict[str, Any]:
-        """Model key -> detector instance for all non-protectai models"""
+        """Model key -> detector instance"""
         return {
-            "hikma": services.hikma_detector,
-            "promptguard": services.promptguard_detector,
             "proventra": services.proventra_detector,
             "modernguard": services.modernguard_detector,
             "wolfdefender": services.wolfdefender_detector,
             "mafguard": services.mafguard_detector,
         }
 
-    def _get_batch_detector(self, services, model_name: str):
-        detectors = self._detectors(services)
-        return detectors[model_name]
-
     def _is_model_available(self, services, model_name: str) -> bool:
-        if model_name == "protectai":
-            return bool(services.model_manager.models)
-        detectors = self._detectors(services)
-        detector = detectors.get(model_name)
+        detector = self._detectors(services).get(model_name)
         return detector is not None and getattr(detector, '_initialized', False)
-
-    def _invoke_detector_sync(self, services, model_name: str, text: str, threshold: Optional[float] = None) -> Dict[str, Any]:
-        if model_name == "protectai":
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(1) as p:
-                        result = p.submit(asyncio.run, services.model_manager.detect(text, mode="basic")).result()
-                else:
-                    result = loop.run_until_complete(services.model_manager.detect(text, mode="basic"))
-            except RuntimeError:
-                result = asyncio.run(services.model_manager.detect(text, mode="basic"))
-            if threshold is not None:
-                result["is_safe"] = result.get("score", 0) < threshold
-            return result
-        detectors = self._detectors(services)
-        detector = detectors[model_name]
-        if threshold is not None:
-            return detector.detect(text, threshold=threshold)
-        return detector.detect(text)
 
     def _compute_metrics(
         self, predictions: List[str], expected: List[str], latencies: List[float]

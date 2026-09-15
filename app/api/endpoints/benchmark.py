@@ -14,21 +14,18 @@ _benchmark_service = BenchmarkService()
 
 
 class ModelThresholds(BaseModel):
-    protectai: float = Field(default=0.7, ge=0.0, le=1.0)
-    hikma: float = Field(default=0.5, ge=0.0, le=1.0)
-    promptguard: float = Field(default=0.5, ge=0.0, le=1.0)
     proventra: float = Field(default=0.5, ge=0.0, le=1.0)
     modernguard: float = Field(default=0.5, ge=0.0, le=1.0)
     wolfdefender: float = Field(default=0.5, ge=0.0, le=1.0)
     mafguard: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
-VALID_MODELS = ["protectai", "hikma", "promptguard", "proventra", "modernguard", "wolfdefender", "mafguard"]
+VALID_MODELS = ["proventra", "modernguard", "wolfdefender", "mafguard"]
 
 
 class BenchmarkRequest(BaseModel):
     dataset_id: str = Field(..., description="HuggingFace dataset ID")
-    models: List[str] = Field(..., description="Model keys to benchmark: protectai, hikma, promptguard, proventra, modernguard, wolfdefender, mafguard")
+    models: List[str] = Field(..., description="Model keys to benchmark: proventra, modernguard, wolfdefender, mafguard")
     max_samples: int = Field(default=200, ge=10, le=1000)
     thresholds: ModelThresholds = Field(default_factory=ModelThresholds)
 
@@ -57,9 +54,6 @@ async def start_benchmark(
             raise HTTPException(status_code=400, detail=f"Invalid model: {m}. Valid: {valid_models}")
 
     thresholds = {
-        "protectai": request.thresholds.protectai,
-        "hikma": request.thresholds.hikma,
-        "promptguard": request.thresholds.promptguard,
         "proventra": request.thresholds.proventra,
         "modernguard": request.thresholds.modernguard,
         "wolfdefender": request.thresholds.wolfdefender,

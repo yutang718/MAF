@@ -10,7 +10,7 @@ export default function HomePage() {
       name: t('home.promptInjection'),
       desc: t('home.promptInjectionDesc'),
       to: '/prompt-injection',
-      stats: { models: '3', accuracy: '99.9%', languages: '100+', latency: '45ms' } as Record<string, string>,
+      stats: { models: '4', accuracy: '99.6%', languages: '100+', latency: '~260ms' } as Record<string, string>,
       statKeys: ['models', 'accuracy', 'languages', 'latency'],
       accent: 'border-cyber-accent/20 hover:border-cyber-accent/50',
       glow: 'hover:shadow-glow-sm',
@@ -103,35 +103,45 @@ function BenchmarkSection({ t }: { t: (key: string) => string }) {
         <h2 className="text-lg font-bold text-cyber-text">{t('home.benchmarks')}</h2>
         <span className="badge-info">{t('home.modelsActive')}</span>
       </div>
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-4 gap-5">
         <BenchmarkCard
-          name="ProtectAI DeBERTa v3"
+          name="MAF Guard v2"
           metrics={[
-            { label: t('home.benchmark.f1'), value: 0.815, color: 'bg-cyber-accent' },
-            { label: t('home.benchmark.recall'), value: 0.997, color: 'bg-cyber-accent' },
-            { label: t('home.benchmark.precision'), value: 0.952, color: 'bg-cyber-accent' },
+            { label: t('home.benchmark.f1'), value: 0.828, color: 'bg-cyber-accent' },
+            { label: t('home.benchmark.recall'), value: 0.857, color: 'bg-cyber-accent' },
+            { label: t('home.benchmark.precision'), value: 0.800, color: 'bg-cyber-accent' },
           ]}
-          meta="DeBERTa-v3-base · 184M params · English"
+          meta={`mmBERT-base · ${t('home.benchmark.fineTuned')} · FPR 0.4%`}
         />
         <BenchmarkCard
-          name="HikmaAI mDeBERTa v3"
+          name="Proventra mDeBERTa v3"
           metrics={[
-            { label: t('home.benchmark.f1'), value: 0.854, color: 'bg-cyber-green' },
-            { label: t('home.benchmark.recall'), value: 0.989, color: 'bg-cyber-green' },
-            { label: t('home.benchmark.internalF1'), value: 0.990, color: 'bg-cyber-green' },
+            { label: t('home.benchmark.f1'), value: 0.571, color: 'bg-cyber-green' },
+            { label: t('home.benchmark.recall'), value: 0.714, color: 'bg-cyber-green' },
+            { label: t('home.benchmark.precision'), value: 0.476, color: 'bg-cyber-green' },
           ]}
-          meta="mDeBERTa-v3-base · ONNX FP32 · 11 Languages"
+          meta="mDeBERTa-v3-base · 100+ Languages · FPR 1.6%"
         />
         <BenchmarkCard
-          name="Meta Prompt-Guard-86M"
+          name="ModernGuard-1"
           metrics={[
-            { label: t('home.benchmark.jailbreakTPR'), value: 0.999, color: 'bg-cyber-purple' },
-            { label: t('home.benchmark.injectionTPR'), value: 0.995, color: 'bg-cyber-purple' },
-            { label: t('home.benchmark.auc'), value: 0.959, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.f1'), value: 0.480, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.recall'), value: 0.857, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.precision'), value: 0.333, color: 'bg-cyber-purple' },
           ]}
-          meta="mDeBERTa-v3-base · 86M params · 3-Class · 100+ Lang"
+          meta="mmBERT-base · 1080 Languages · 8k ctx · FPR 3.5%"
+        />
+        <BenchmarkCard
+          name="Wolf Defender v2"
+          metrics={[
+            { label: t('home.benchmark.f1'), value: 0.462, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.recall'), value: 0.643, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.precision'), value: 0.360, color: 'bg-cyber-purple' },
+          ]}
+          meta="mmBERT-base · Multilingual · FPR 2.3%"
         />
       </div>
+      <p className="text-xs text-cyber-muted mt-3">{t('home.benchmark.note')}</p>
     </div>
   )
 }
@@ -149,9 +159,9 @@ function TechStackSection({ t }: { t: (key: string) => string }) {
             <th className="table-header">{t('home.table.size')}</th>
           </tr></thead>
           <tbody>
-            <Row cells={[t('home.pipeline.promptEN'), 'ProtectAI DeBERTa v3', 'PyTorch', '1.5 GB']} />
-            <Row cells={[t('home.pipeline.promptMulti'), 'HikmaAI mDeBERTa v3', 'ONNX', '350 MB']} />
-            <Row cells={[t('home.pipeline.prompt3Class'), 'Meta Prompt-Guard-86M', 'PyTorch', '86 MB']} />
+            <Row cells={[t('home.pipeline.promptFineTuned'), 'MAF Guard v2 (mmBERT)', 'PyTorch', '1.2 GB']} />
+            <Row cells={[t('home.pipeline.promptMulti'), 'Proventra mDeBERTa v3', 'PyTorch', '300 MB']} />
+            <Row cells={[t('home.pipeline.promptMulti'), 'ModernGuard-1 · Wolf Defender v2', 'PyTorch', '1.2 GB ×2']} />
             <Row cells={[t('home.pipeline.pii'), 'Presidio + spaCy', 'CPU', '~200 MB']} />
             <Row cells={[t('home.pipeline.compliance'), 'Rule Engine', 'CPU', '<1 MB']} />
           </tbody>
@@ -167,8 +177,8 @@ function TechStackSection({ t }: { t: (key: string) => string }) {
           </tr></thead>
           <tbody>
             <Row cells={[t('home.infra.apiGateway'), 'FastAPI + Uvicorn', '0.104']} />
-            <Row cells={[t('home.infra.mlRuntime'), 'PyTorch + ONNX Runtime', '2.2+']} />
-            <Row cells={[t('home.infra.nlp'), 'Transformers + spaCy', '4.36+']} />
+            <Row cells={[t('home.infra.mlRuntime'), 'PyTorch', '2.x']} />
+            <Row cells={[t('home.infra.nlp'), 'Transformers + spaCy', '4.49']} />
             <Row cells={[t('home.infra.frontend'), 'React + Vite + Tailwind', '19.x']} />
             <Row cells={[t('home.infra.orchestration'), 'Docker Compose', '2.x']} />
           </tbody>

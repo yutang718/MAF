@@ -11,10 +11,15 @@ router = APIRouter()
 @router.get("/")
 async def health_check(services: Services = Depends(get_services)):
     """健康检查端点"""
-    model_manager = services.model_manager
     pii_detector = services.pii_detector
 
-    loaded_models_list = list(model_manager.models.keys())
+    detectors = {
+        "proventra": services.proventra_detector,
+        "modernguard": services.modernguard_detector,
+        "wolfdefender": services.wolfdefender_detector,
+        "mafguard": services.mafguard_detector,
+    }
+    loaded_models_list = [k for k, d in detectors.items() if getattr(d, "_initialized", False)]
     pii_rules_count = len(pii_detector.rules)
     pii_rules_enabled = sum(1 for rule in pii_detector.rules if isinstance(rule, dict) and rule.get("enabled", True))
 
@@ -27,8 +32,8 @@ async def health_check(services: Services = Depends(get_services)):
             "python_version": platform.python_version(),
         },
         "components": {
-            "model_manager": {
-                "status": "up",
+            "guard_models": {
+                "status": "up" if loaded_models_list else "degraded",
                 "loaded_models": loaded_models_list,
                 "models_count": len(loaded_models_list)
             },

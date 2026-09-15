@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     
     # 模型配置
     MODEL_CACHE_DIR: str = os.getenv("MODEL_CACHE_DIR", "./model_cache")
-    DEFAULT_MODEL: str = "ProtectAI/deberta-v3-base-prompt-injection-v2"
     DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-ai/deepseek-llm-7b-chat")
     
     # 日志配置
@@ -53,11 +52,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     HUGGINGFACE_TOKEN: str = os.getenv("HUGGINGFACE_TOKEN", "")
     
-    # 模型设置
-    AVAILABLE_MODELS: Dict[str, str] = {
-        "ProtectAI/deberta-v3-base-prompt-injection-v2": "ProtectAI's DeBERTa model for prompt injection detection",
-    }
-    
     # Security Rules
     MAX_INPUT_LENGTH: int = 1000
     SENSITIVE_PATTERNS: Dict[str, str] = {
@@ -73,24 +67,6 @@ class Settings(BaseSettings):
     # DeepSeek API settings
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-ee2ee84b13384efa9594eda1d1c2f02e")
     
-    # 为了兼容性，添加 AVAILABLE_MODELS_MAP
-    @property
-    def AVAILABLE_MODELS_MAP(self) -> Dict[str, Dict[str, str]]:
-        """返回模型映射信息"""
-        return {
-            model_id: {
-                "id": model_id,
-                "name": model_id.split("/")[-1],
-                "description": description
-            }
-            for model_id, description in self.AVAILABLE_MODELS.items()
-        }
-    
-    # DeepSeek API 配置
-    DEEPSEEK_API_URL: str = "http://127.0.0.1:11434/api/chat"  # 更新为正确的 API 地址
-    
-    # 添加新的配置项
-    MODEL_NAME: str = "microsoft/deberta-v3-base"
     TRANSFORMERS_VERBOSITY: str = "error"
     PYTHONWARNINGS: str = "ignore::UserWarning"
     

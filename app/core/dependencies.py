@@ -2,12 +2,8 @@
 from typing import Generator, TYPE_CHECKING
 from core.logging import get_logger
 from fastapi import Depends
-from services.model_manager import ModelManager
 from services.islamic_context_manager import IslamicContextManager
 from services.pii_detector import PIIDetector
-from services.prompt_checker import PromptChecker
-from services.hikma_detector import HikmaDetector
-from services.promptguard_detector import PromptGuardDetector
 from services.proventra_detector import ProventraDetector
 from services.mmbert_detector import ModernGuardDetector, WolfDefenderDetector, MafGuardDetector
 
@@ -25,12 +21,8 @@ class Services:
         if cls._instance is None:
             cls._instance = super(Services, cls).__new__(cls)
             # 创建所有服务实例
-            cls._instance.model_manager = ModelManager()
             cls._instance.islamic_context_manager = IslamicContextManager()
             cls._instance.pii_detector = PIIDetector()
-            cls._instance.prompt_checker = PromptChecker(cls._instance.model_manager)
-            cls._instance.hikma_detector = HikmaDetector()
-            cls._instance.promptguard_detector = PromptGuardDetector()
             cls._instance.proventra_detector = ProventraDetector()
             cls._instance.modernguard_detector = ModernGuardDetector()
             cls._instance.wolfdefender_detector = WolfDefenderDetector()
@@ -48,42 +40,22 @@ class Services:
         try:
             logger.info("Starting services initialization...")
             
-            # 按依赖顺序初始化
-            # 1. 首先初始化模型管理器（其他服务可能依赖它）
-            logger.info("Initializing model manager...")
-            self.model_manager.initialize()
-            
-            # 2. 初始化 PII 检测器
+            # 1. 初始化 PII 检测器
             logger.info("Initializing PII detector...")
             self.pii_detector.initialize()
             
-            # 3. 初始化伊斯兰上下文管理器
+            # 2. 初始化伊斯兰上下文管理器
             logger.info("Initializing Islamic context manager...")
             self.islamic_context_manager.initialize()
             
-            # 4. 初始化提示词检查器
-            logger.info("Initializing prompt checker...")
-            self.prompt_checker.initialize()
-
-            # 5. 初始化 HikmaAI 检测器
-            logger.info("Initializing HikmaAI detector...")
-            self.hikma_detector.initialize()
-
-            # 6. 初始化 Prompt-Guard 检测器 (gated model, may fail without auth)
-            try:
-                logger.info("Initializing Prompt-Guard detector...")
-                self.promptguard_detector.initialize()
-            except Exception as e:
-                logger.warning(f"Prompt-Guard model unavailable (may require HF auth): {e}")
-
-            # 7. 初始化 Proventra 检测器
+            # 3. 初始化 Proventra 检测器
             try:
                 logger.info("Initializing Proventra detector...")
                 self.proventra_detector.initialize()
             except Exception as e:
                 logger.warning(f"Proventra model unavailable: {e}")
 
-            # 8. 初始化 ModernGuard-1 / Wolf Defender / MAF Guard 检测器 (mmBERT; MAF Guard 需本地训练产物)
+            # 4. 初始化 ModernGuard-1 / Wolf Defender / MAF Guard 检测器 (mmBERT; MAF Guard 需本地训练产物)
             for detector in (self.modernguard_detector, self.wolfdefender_detector, self.mafguard_detector):
                 try:
                     logger.info(f"Initializing {detector.name} detector...")
@@ -104,22 +76,13 @@ class Services:
         try:
             logger.info("Starting services cleanup...")
             
-            # 按依赖顺序反向清理
-            # 1. 清理提示词检查器
-            logger.info("Cleaning up prompt checker...")
-            await self.prompt_checker.cleanup()
-            
-            # 2. 清理伊斯兰上下文管理器
+            # 1. 清理伊斯兰上下文管理器
             logger.info("Cleaning up Islamic context manager...")
             await self.islamic_context_manager.cleanup()
             
-            # 3. 清理 PII 检测器
+            # 2. 清理 PII 检测器
             logger.info("Cleaning up PII detector...")
             await self.pii_detector.cleanup()
-            
-            # 4. 最后清理模型管理器
-            logger.info("Cleaning up model manager...")
-            await self.model_manager.cleanup()
             
             logger.info("All services cleaned up successfully")
             Services._initialized = False

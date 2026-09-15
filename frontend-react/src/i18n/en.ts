@@ -28,7 +28,7 @@ const en: Record<string, string> = {
   'home.complianceEngine': 'Compliance Engine',
   'home.complianceEngineDesc': 'Islamic principles and Halal requirement verification with configurable rule sets',
   'home.benchmarks': 'Model Performance Benchmarks',
-  'home.modelsActive': '3 Models Active',
+  'home.modelsActive': '4 Models Active',
   'home.detectionPipeline': 'Detection Pipeline',
   'home.infrastructure': 'Infrastructure',
   // Stats keys for module cards
@@ -43,6 +43,8 @@ const en: Record<string, string> = {
   'home.stat.rules': 'rules',
   'home.stat.coverage': 'coverage',
   // Benchmark labels
+  'home.benchmark.fineTuned': 'fine-tuned in-house',
+  'home.benchmark.note': 'Measured on 700 real user inputs held out from training; FPR = share of benign inputs blocked.',
   'home.benchmark.f1': 'F1 Score',
   'home.benchmark.recall': 'Recall',
   'home.benchmark.precision': 'Precision',
@@ -59,6 +61,7 @@ const en: Record<string, string> = {
   'home.table.technology': 'Technology',
   'home.table.version': 'Version',
   // Pipeline rows
+  'home.pipeline.promptFineTuned': 'Prompt (fine-tuned)',
   'home.pipeline.promptEN': 'Prompt (EN)',
   'home.pipeline.promptMulti': 'Prompt (Multi)',
   'home.pipeline.prompt3Class': 'Prompt (3-Class)',

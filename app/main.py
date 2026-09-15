@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 # 第三方库导入
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -65,6 +65,8 @@ def mount_frontend(app: FastAPI) -> None:
     # 注册在 API 路由之后，仅兜底非 API 路径
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
         candidate = static_dir / full_path
         if full_path and candidate.is_file() and candidate.resolve().is_relative_to(static_dir.resolve()):
             return FileResponse(candidate)

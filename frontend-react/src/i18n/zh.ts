@@ -28,7 +28,7 @@ const zh: Record<string, string> = {
   'home.complianceEngine': '合规引擎',
   'home.complianceEngineDesc': '伊斯兰原则与清真要求验证，支持可配置规则集',
   'home.benchmarks': '模型性能基准',
-  'home.modelsActive': '3 个模型运行中',
+  'home.modelsActive': '4 个模型运行中',
   'home.detectionPipeline': '检测流水线',
   'home.infrastructure': '基础设施',
   // Stats keys for module cards
@@ -43,6 +43,8 @@ const zh: Record<string, string> = {
   'home.stat.rules': '规则',
   'home.stat.coverage': '覆盖',
   // Benchmark labels
+  'home.benchmark.fineTuned': '本项目微调',
+  'home.benchmark.note': '指标来自 700 条从未参与训练的真实用户输入（留出集）；FPR = 正常输入被误拦比例。',
   'home.benchmark.f1': 'F1 分数',
   'home.benchmark.recall': '召回率',
   'home.benchmark.precision': '精确率',
@@ -59,6 +61,7 @@ const zh: Record<string, string> = {
   'home.table.technology': '技术栈',
   'home.table.version': '版本',
   // Pipeline rows
+  'home.pipeline.promptFineTuned': '提示词 (自训练)',
   'home.pipeline.promptEN': '提示词 (英文)',
   'home.pipeline.promptMulti': '提示词 (多语言)',
   'home.pipeline.prompt3Class': '提示词 (三分类)',

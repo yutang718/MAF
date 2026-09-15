@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { DetectionResult, HikmaResult, PromptGuardResult, ProventraResult, ModelsResponse } from '../types/prompt'
+import type { DetectionResult, HikmaResult, PromptGuardResult, ProventraResult, MafGuardResult, ModelsResponse } from '../types/prompt'
 
 export async function detectPrompt(text: string, mode: string = 'detailed'): Promise<DetectionResult> {
   const { data } = await apiClient.post('/prompt/detect', { text, mode })
@@ -28,6 +28,11 @@ export async function detectModernGuard(text: string, threshold: number = 0.5): 
 
 export async function detectWolfDefender(text: string, threshold: number = 0.5): Promise<ProventraResult> {
   const { data } = await apiClient.post('/wolfdefender/detect', { text, threshold })
+  return data
+}
+
+export async function detectMafGuard(text: string, threshold: number = 0.5): Promise<MafGuardResult> {
+  const { data } = await apiClient.post('/mafguard/detect', { text, threshold })
   return data
 }
 

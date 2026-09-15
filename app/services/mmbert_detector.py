@@ -49,6 +49,7 @@ class MmBertInjectionDetector:
         self._initialized = False
         self.threshold = threshold
         self.max_length = max_length
+        self.classes = ["SAFE", "INJECTION"]
 
     def initialize(self) -> None:
         if self._initialized:
@@ -130,3 +131,73 @@ class WolfDefenderDetector(MmBertInjectionDetector):
 
     def __init__(self):
         super().__init__("patronus-studio/wolf-defender-prompt-injection", "Wolf Defender")
+
+
+class MafGuardDetector(MmBertInjectionDetector):
+    """Project-trained 3-class guard (BENIGN / INJECTION / HARMFUL_REQUEST), see training/train.py.
+
+    threat_score = 1 - P(BENIGN); the input is blocked when threat_score >= threshold.
+    Loaded from a local directory (MAF_GUARD_MODEL_PATH), so it is optional at runtime.
+    """
+
+    DEFAULT_PATH = "models/maf-guard-v2"
+
+    def __init__(self):
+        import os
+        path = os.getenv("MAF_GUARD_MODEL_PATH", self.DEFAULT_PATH)
+        super().__init__(path, "MAF Guard")
+        self.classes = ["BENIGN", "INJECTION", "HARMFUL_REQUEST"]
+
+    def initialize(self) -> None:
+        import os
+        if not os.path.isfile(os.path.join(self.MODEL_ID, "config.json")):
+            raise FileNotFoundError(f"no trained model at {self.MODEL_ID} (run training/train.py)")
+        super().initialize()
+        self.classes = [self.model.config.id2label[i] for i in range(self.model.config.num_labels)]
+
+    def _scores(self, probs) -> Dict[str, float]:
+        return {label: round(float(p), 4) for label, p in zip(self.classes, probs)}
+
+    def detect(self, text: str, threshold: Optional[float] = None) -> Dict[str, Any]:
+        if not self._initialized:
+            self.initialize()
+        if threshold is None:
+            threshold = self.threshold
+
+        probs = self._predict([text])[0]
+        threat_score = 1.0 - float(probs[0])
+        predicted_idx = int(np.argmax(probs))
+        is_safe = threat_score < threshold
+
+        return {
+            "model": self.MODEL_ID,
+            "text": text,
+            "is_injection": not is_safe,
+            "is_safe": is_safe,
+            "threat_score": round(threat_score, 4),
+            "injection_score": round(threat_score, 4),  # compat with binary detectors
+            "safe_score": round(float(probs[0]), 4),
+            "scores": self._scores(probs),
+            "threshold": threshold,
+            "label": self.classes[predicted_idx],
+            "confidence": round(float(probs[predicted_idx]), 4),
+        }
+
+    def detect_batch(self, texts: list, threshold: Optional[float] = None) -> list:
+        if not self._initialized:
+            self.initialize()
+        if threshold is None:
+            threshold = self.threshold
+
+        probs = self._predict(texts)
+        results = []
+        for i in range(len(texts)):
+            threat_score = 1.0 - float(probs[i][0])
+            is_safe = threat_score < threshold
+            results.append({
+                "is_safe": is_safe,
+                "injection_score": round(threat_score, 4),
+                "label": "SAFE" if is_safe else self.classes[int(np.argmax(probs[i]))],
+                "scores": self._scores(probs[i]),
+            })
+        return results

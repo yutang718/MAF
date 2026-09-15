@@ -18,25 +18,40 @@ excluded from training and should be handled by the LLM's own policy / authz.
 
 ## 2. Train
 
+The project `venv/` is an x86_64 (Rosetta) Python — torch tops out at 2.2 there and MPS
+training thrashes. Use a native arm64 environment on Apple Silicon:
+
 ```bash
-pip install -r app/requirements.txt -r training/requirements.txt
-python training/train.py                       # Wolf Defender base, 3 epochs, lr 2e-5
+uv python install cpython-3.11-macos-aarch64-none
+uv venv --python cpython-3.11-macos-aarch64-none .venv-train
+uv pip install --python .venv-train/bin/python "torch>=2.6" "transformers==4.49.0" \
+    datasets accelerate pandas scikit-learn sentencepiece protobuf
+.venv-train/bin/python training/train.py           # Wolf Defender base, 3 epochs, lr 2e-5
 ```
 
-Options: `--base-model` (any mmBERT / ModernBERT classifier or `jhu-clsp/mmBERT-small`),
-`--epochs`, `--lr`, `--batch-size` / `--grad-accum` (defaults 8×2 fit Apple MPS memory), `--public-per-dataset N` (0 = real + Malay data only), `--eval-only`.
+Classes: `benign` (0) / `injection` (1) / `harmful_request` (2). Threat score = 1 − P(benign).
 
-20% of the real inputs and 20% of the Malay set are held out and never trained on;
-`models/<name>/eval_report.json` reports FPR / recall at thresholds 0.5–0.99 on both,
-plus the 10 worst benign and 10 worst injection samples so you can see what still fails.
+Data recipe (~11.5k, all CLI-tunable): real inputs + Malay set + deepset + xTRam1
+(`--n-xtram`) + jackhhao jailbreak/role-play + LLM-LAT harmful (`--n-harmful`) + HarmfulQA
+(`--n-harmfulqa`) + LLM-LAT benign (`--n-benign-public`). `--no-public` = real + Malay only.
+
+Other options: `--base-model` (any mmBERT / ModernBERT classifier), `--epochs`, `--lr`,
+`--batch-size` / `--grad-accum` (8×2 fits 16 GB Apple Silicon with SDPA attention and frozen
+embeddings), `--train-embeddings`, `--eval-only`.
+
+Held out and never trained on: 20% of real inputs, 20% of the Malay set, 20% of the public
+harmful samples, plus the official deepset / xTRam1 test splits as an external reference.
+`models/<name>/eval_report.json` reports FPR, injection recall and harmful recall per
+threshold, the argmax confusion matrix, and the 10 hardest samples per class.
 
 Targets: real-benign FPR < 0.3%, obvious-injection recall > 95%.
 
-CPU: mmBERT-base, ~5k samples, 3 epochs ≈ 1–2 h on an M-series Mac (MPS is used
-automatically). A free Colab T4 finishes in ~15 min.
+Speed: ~0.7 steps/s on an M-series Mac → 3 epochs over 11.5k samples ≈ 30–50 min.
 
 ## 3. Use the model
 
-`MmBertInjectionDetector(model_id=<local path>, name=...)` in
-`app/services/mmbert_detector.py` accepts a local directory, so the trained model can be
-wired in exactly like ModernGuard / Wolf Defender.
+`MafGuardDetector` (`app/services/mmbert_detector.py`) loads the checkpoint from
+`MAF_GUARD_MODEL_PATH` (default `models/maf-guard-v2`); docker-compose mounts `./models`
+read-only into the container. It is exposed as `/api/v1/mafguard/detect`, as model key
+`mafguard` in the benchmark API, and as "MAF Guard v2" in the UI. If the directory is
+missing the detector is simply reported unavailable.

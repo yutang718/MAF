@@ -1,16 +1,18 @@
-"""Fine-tune an mmBERT prompt-injection classifier on this project's real user data.
+"""Fine-tune an mmBERT 3-class guard (benign / injection / harmful_request) on this project's data.
 
-Data mix (benign=0, injection=1):
-  - data/user_inputs_cleaned.csv   real user inputs (harmful_request rows dropped); 20% held out as TEST
-  - app/data/malay_prompt_injection.py  380 Malay samples; 20% held out as TEST
-  - public HF datasets (train only): deepset/prompt-injections, xTRam1/safe-guard-prompt-injection
+Data mix (see DATA RECIPE below; sizes are CLI-tunable):
+  real       data/user_inputs_cleaned.csv       20% held out as TEST
+  malay      app/data/malay_prompt_injection.py  20% held out as TEST
+  public     deepset, xTRam1, jackhhao (injection); LLM-LAT harmful + HarmfulQA (harmful_request);
+             LLM-LAT benign (benign). 20% of public harmful held out as TEST; official test splits of
+             deepset / xTRam1 used as an external reference.
 
-The held-out split is the only number that matters: FPR on real benign inputs and recall on injections.
+Threat score = 1 - P(benign). "Blocked" means threat >= threshold.
 
 Usage:
-  python training/train.py                          # defaults: Wolf Defender base, 3 epochs
-  python training/train.py --base-model jhu-clsp/mmBERT-small --epochs 4
-  python training/train.py --eval-only --output-dir models/maf-guard-v1
+  python training/train.py                              # Wolf Defender base, 3 epochs
+  python training/train.py --no-public                  # real + Malay only
+  python training/train.py --eval-only --output-dir models/maf-guard-v2
 """
 import argparse
 import json
@@ -27,26 +29,36 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "app"))
 from data.malay_prompt_injection import MALAY_DATASET  # noqa: E402
 
-LABEL2ID = {"benign": 0, "injection": 1}
+LABELS = ["benign", "injection", "harmful_request"]
+LABEL2ID = {l: i for i, l in enumerate(LABELS)}
+ID2LABEL = {0: "BENIGN", 1: "INJECTION", 2: "HARMFUL_REQUEST"}
 THRESHOLDS = [0.5, 0.8, 0.9, 0.95, 0.98, 0.99]
 
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--base-model", default="patronus-studio/wolf-defender-prompt-injection")
-    p.add_argument("--output-dir", default=str(ROOT / "models" / "maf-guard-v1"))
+    p.add_argument("--output-dir", default=str(ROOT / "models" / "maf-guard-v2"))
     p.add_argument("--epochs", type=float, default=3)
     p.add_argument("--lr", type=float, default=2e-5)
     p.add_argument("--batch-size", type=int, default=8)
-    p.add_argument("--grad-accum", type=int, default=2, help="gradient accumulation steps (effective batch = batch-size x grad-accum)")
+    p.add_argument("--grad-accum", type=int, default=2, help="effective batch = batch-size x grad-accum")
     p.add_argument("--max-length", type=int, default=256)
-    p.add_argument("--public-per-dataset", type=int, default=800,
-                   help="samples drawn from each public dataset (0 disables)")
     p.add_argument("--test-frac", type=float, default=0.2)
+    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--train-embeddings", action="store_true",
                    help="also fine-tune the embedding table (256k vocab, 2/3 of the params); frozen by default")
-    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--eval-only", action="store_true", help="skip training; evaluate --output-dir (or --base-model)")
+    # DATA RECIPE
+    p.add_argument("--no-public", action="store_true", help="train on real + Malay data only")
+    p.add_argument("--n-xtram", type=int, default=3000, help="xTRam1/safe-guard samples (balanced)")
+    p.add_argument("--n-harmful", type=int, default=2500, help="LLM-LAT/harmful-dataset samples")
+    p.add_argument("--n-harmfulqa", type=int, default=800, help="declare-lab/HarmfulQA samples")
+    p.add_argument("--n-benign-public", type=int, default=1500, help="LLM-LAT/benign-dataset samples")
+    p.add_argument("--domain-repeat", type=int, default=2,
+                   help="repeat real + Malay rows this many times so public data does not swamp the target distribution")
+    p.add_argument("--domain-attack-repeat", type=int, default=4,
+                   help="repeat real + Malay injection/harmful rows this many times (they are rare: ~300 rows)")
     return p.parse_args()
 
 
@@ -71,6 +83,14 @@ def load_tokenizer(model_id: str):
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
+def _frame(texts, labels, source) -> pd.DataFrame:
+    df = pd.DataFrame({"text": texts, "label": labels})
+    df["text"] = df["text"].astype(str).str.strip()
+    df = df[(df["text"] != "") & df["label"].isin(LABELS)].drop_duplicates("text")
+    df["source"] = source
+    return df.reset_index(drop=True)
+
+
 def stratified_split(df: pd.DataFrame, test_frac: float, seed: int):
     test_idx = []
     for _, grp in df.groupby("label"):
@@ -86,70 +106,94 @@ def load_real(test_frac, seed):
     if not path.exists():
         sys.exit(f"{path} missing - run training/clean_labels.py first")
     df = pd.read_csv(path)
-    df = df[df["label"].isin(LABEL2ID)][["text", "label"]].dropna()
-    df["text"] = df["text"].astype(str).str.strip()
-    df = df[df["text"] != ""].drop_duplicates("text")
-    df["source"] = "real"
-    return stratified_split(df, test_frac, seed)
+    return stratified_split(_frame(df["text"], df["label"], "real"), test_frac, seed)
 
 
 def load_malay(test_frac, seed):
-    df = pd.DataFrame([{"text": x["text"], "label": x["label"]} for x in MALAY_DATASET])
-    df = df[df["label"].isin(LABEL2ID)].drop_duplicates("text")
-    df["source"] = "malay"
+    df = _frame([x["text"] for x in MALAY_DATASET], [x["label"] for x in MALAY_DATASET], "malay")
     return stratified_split(df, test_frac, seed)
 
 
-def load_public(per_dataset: int, seed: int) -> pd.DataFrame:
-    if per_dataset <= 0:
-        return pd.DataFrame(columns=["text", "label", "source"])
+def load_public(args):
+    """Returns (train_df, harmful_test_df, external_test_df)."""
     from datasets import load_dataset
-    frames = []
-    for ds_id in ("deepset/prompt-injections", "xTRam1/safe-guard-prompt-injection"):
-        ds = load_dataset(ds_id, split="train")
-        df = ds.to_pandas()[["text", "label"]]
-        df["label"] = df["label"].map({0: "benign", 1: "injection"})
-        # balanced draw so public data does not swamp the real distribution
-        parts = [g.sample(n=min(len(g), per_dataset // 2), random_state=seed) for _, g in df.groupby("label")]
-        df = pd.concat(parts)
-        df["source"] = ds_id
-        frames.append(df)
-        print(f"  {ds_id}: {len(df)} samples")
-    return pd.concat(frames, ignore_index=True)
+    seed = args.seed
+    train, tests = [], []
+
+    def sample(df, n):
+        return df if n >= len(df) else df.sample(n=n, random_state=seed)
+
+    ds = load_dataset("deepset/prompt-injections")
+    m = {0: "benign", 1: "injection"}
+    train.append(_frame(ds["train"]["text"], [m[l] for l in ds["train"]["label"]], "deepset"))
+    ext = [_frame(ds["test"]["text"], [m[l] for l in ds["test"]["label"]], "deepset-test")]
+
+    ds = load_dataset("xTRam1/safe-guard-prompt-injection")
+    df = _frame(ds["train"]["text"], [m[l] for l in ds["train"]["label"]], "xtram")
+    train.append(pd.concat([sample(g, args.n_xtram // 2) for _, g in df.groupby("label")]))
+    ext.append(_frame(ds["test"]["text"], [m[l] for l in ds["test"]["label"]], "xtram-test"))
+
+    ds = load_dataset("jackhhao/jailbreak-classification", split="train")
+    m2 = {"benign": "benign", "jailbreak": "injection"}
+    train.append(_frame(ds["prompt"], [m2.get(t, "") for t in ds["type"]], "jackhhao"))
+
+    ds = load_dataset("LLM-LAT/harmful-dataset", split="train")
+    harm = [sample(_frame(ds["prompt"], ["harmful_request"] * len(ds), "llm-lat-harmful"), args.n_harmful)]
+    ds = load_dataset("declare-lab/HarmfulQA", split="train")
+    harm.append(sample(_frame(ds["question"], ["harmful_request"] * len(ds), "harmfulqa"), args.n_harmfulqa))
+    harm_train, harm_test = stratified_split(pd.concat(harm, ignore_index=True), args.test_frac, seed)
+    train.append(harm_train)
+
+    ds = load_dataset("LLM-LAT/benign-dataset", split="train")
+    train.append(sample(_frame(ds["prompt"], ["benign"] * len(ds), "llm-lat-benign"), args.n_benign_public))
+
+    for t in train:
+        print(f"  {t['source'].iloc[0]:>16}: {len(t):5d}  {dict(Counter(t['label']))}")
+    return pd.concat(train, ignore_index=True), harm_test, pd.concat(ext, ignore_index=True)
 
 
 # ---------------------------------------------------------------------------
 # Eval
 # ---------------------------------------------------------------------------
 @torch.no_grad()
-def score_texts(model, tokenizer, texts, max_length, batch_size=32) -> np.ndarray:
+def predict(model, tokenizer, texts, max_length, batch_size=32) -> np.ndarray:
+    """Returns softmax probabilities, shape (n, 3)."""
     model.eval()
     out = []
     for i in range(0, len(texts), batch_size):
         enc = tokenizer(texts[i:i + batch_size], return_tensors="pt", truncation=True,
                         max_length=max_length, padding=True)
         enc = {k: v.to(model.device) for k, v in enc.items()}
-        probs = torch.softmax(model(**enc).logits, dim=-1)[:, 1]
-        out.append(probs.float().cpu().numpy())
-    return np.concatenate(out) if out else np.array([])
+        out.append(torch.softmax(model(**enc).logits, dim=-1).float().cpu().numpy())
+    return np.concatenate(out) if out else np.zeros((0, len(LABELS)))
 
 
 def evaluate(model, tokenizer, df: pd.DataFrame, max_length: int, name: str) -> dict:
-    scores = score_texts(model, tokenizer, df["text"].tolist(), max_length)
+    probs = predict(model, tokenizer, df["text"].tolist(), max_length)
     y = df["label"].map(LABEL2ID).to_numpy()
-    ben, inj = scores[y == 0], scores[y == 1]
-    report = {"n_benign": int(len(ben)), "n_injection": int(len(inj)), "thresholds": {}}
-    print(f"\n[{name}] benign={len(ben)} injection={len(inj)}")
-    print(f"  {'thr':>5} {'FPR':>7} {'blocked':>7} {'recall':>7} {'missed':>6} {'acc':>6}")
+    threat = 1.0 - probs[:, 0]
+    pred = probs.argmax(-1)
+    n = {l: int((y == i).sum()) for l, i in LABEL2ID.items()}
+    report = {"n": n, "thresholds": {}, "argmax_confusion": {}}
+    print(f"\n[{name}] {n}")
+    print(f"  {'thr':>5} {'FPR':>7} {'blocked':>7} | {'inj_recall':>10} {'harm_recall':>11}")
     for t in THRESHOLDS:
-        fp = int((ben >= t).sum()); tp = int((inj >= t).sum())
-        fpr = fp / max(1, len(ben)); rec = tp / max(1, len(inj))
-        acc = (tp + len(ben) - fp) / max(1, len(df))
-        report["thresholds"][str(t)] = {"fpr": fpr, "blocked": fp, "recall": rec, "missed": int(len(inj) - tp), "accuracy": acc}
-        print(f"  {t:5.2f} {fpr:7.4f} {fp:7d} {rec:7.3f} {len(inj)-tp:6d} {acc:6.3f}")
-    df = df.assign(score=scores)
-    report["worst_benign"] = df[y == 0].nlargest(10, "score")[["score", "text"]].to_dict("records")
-    report["worst_injection"] = df[y == 1].nsmallest(10, "score")[["score", "text"]].to_dict("records")
+        fp = int(((y == 0) & (threat >= t)).sum())
+        r_inj = float(((y == 1) & (threat >= t)).sum() / max(1, n["injection"]))
+        r_harm = float(((y == 2) & (threat >= t)).sum() / max(1, n["harmful_request"]))
+        report["thresholds"][str(t)] = {"fpr": fp / max(1, n["benign"]), "blocked": fp,
+                                        "injection_recall": r_inj, "harmful_recall": r_harm}
+        print(f"  {t:5.2f} {fp/max(1,n['benign']):7.4f} {fp:7d} | {r_inj:10.3f} {r_harm:11.3f}")
+    print("  argmax confusion (rows=true, cols=pred benign/injection/harmful):")
+    for l, i in LABEL2ID.items():
+        row = [int(((y == i) & (pred == j)).sum()) for j in range(len(LABELS))]
+        report["argmax_confusion"][l] = row
+        if n[l]:
+            print(f"    {l:>16} {row}")
+    df = df.assign(threat=threat, pred=[ID2LABEL[int(p)] for p in pred])
+    report["worst_benign"] = df[y == 0].nlargest(10, "threat")[["threat", "pred", "text"]].to_dict("records")
+    report["worst_injection"] = df[y == 1].nsmallest(10, "threat")[["threat", "pred", "text"]].to_dict("records")
+    report["worst_harmful"] = df[y == 2].nsmallest(10, "threat")[["threat", "pred", "text"]].to_dict("records")
     return report
 
 
@@ -162,14 +206,24 @@ def main():
     print("Loading data...")
     real_train, real_test = load_real(args.test_frac, args.seed)
     malay_train, malay_test = load_malay(args.test_frac, args.seed)
-    public = load_public(args.public_per_dataset, args.seed) if not args.eval_only else pd.DataFrame()
-    train_df = pd.concat([real_train, malay_train, public], ignore_index=True).sample(frac=1, random_state=args.seed)
-    # never let a test text leak into train via a public dataset duplicate
-    held = set(real_test["text"]) | set(malay_test["text"])
-    train_df = train_df[~train_df["text"].isin(held)].reset_index(drop=True)
+    if args.no_public:
+        public_train = harm_test = ext_test = pd.DataFrame(columns=["text", "label", "source"])
+    else:
+        public_train, harm_test, ext_test = load_public(args)
+    domain = pd.concat([real_train, malay_train], ignore_index=True)
+    train_df = pd.concat([domain, public_train], ignore_index=True)
+    # never let a test text leak into train via a public-dataset duplicate
+    held = set(real_test["text"]) | set(malay_test["text"]) | set(harm_test["text"]) | set(ext_test["text"])
+    train_df = train_df[~train_df["text"].isin(held)].drop_duplicates("text")
+    # oversample the domain data (after dedup so public duplicates cannot be repeated)
+    extra = [domain] * (args.domain_repeat - 1) + [domain[domain["label"] != "benign"]] * (args.domain_attack_repeat - 1)
+    train_df = pd.concat([train_df] + extra, ignore_index=True)
+    train_df = train_df.sample(frac=1, random_state=args.seed).reset_index(drop=True)
 
-    print(f"train: {len(train_df)}  {dict(Counter(train_df['label']))}  by source: {dict(Counter(train_df['source']))}")
-    print(f"test (real): {len(real_test)} {dict(Counter(real_test['label']))}   test (malay): {len(malay_test)} {dict(Counter(malay_test['label']))}")
+    print(f"\ntrain: {len(train_df)}  {dict(Counter(train_df['label']))}")
+    print(f"test  real: {len(real_test)} {dict(Counter(real_test['label']))}")
+    print(f"test  malay: {len(malay_test)} {dict(Counter(malay_test['label']))}")
+    print(f"test  public harmful: {len(harm_test)}   external (deepset/xtram test): {len(ext_test)}")
 
     from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
     from datasets import Dataset
@@ -177,8 +231,9 @@ def main():
     model_src = str(out_dir) if args.eval_only and out_dir.exists() else args.base_model
     tokenizer = load_tokenizer(model_src)
     model = AutoModelForSequenceClassification.from_pretrained(
-        model_src, num_labels=2, id2label={0: "SAFE", 1: "INJECTION"}, label2id={"SAFE": 0, "INJECTION": 1},
+        model_src, num_labels=len(LABELS), id2label=ID2LABEL, label2id={v: k for k, v in ID2LABEL.items()},
         ignore_mismatched_sizes=True,
+        attn_implementation="sdpa",  # eager attention keeps 22 layers of score matrices for backward -> OOM on MPS
     )
 
     if not args.eval_only:
@@ -190,16 +245,17 @@ def main():
 
         def tok(batch):
             return tokenizer(batch["text"], truncation=True, max_length=args.max_length)
-        train_ds = Dataset.from_pandas(train_df.assign(labels=train_df["label"].map(LABEL2ID))[["text", "labels"]])
-        train_ds = train_ds.map(tok, batched=True, remove_columns=["text"])
-        eval_df = pd.concat([real_test, malay_test], ignore_index=True)
-        eval_ds = Dataset.from_pandas(eval_df.assign(labels=eval_df["label"].map(LABEL2ID))[["text", "labels"]])
-        eval_ds = eval_ds.map(tok, batched=True, remove_columns=["text"])
+
+        def to_ds(df):
+            ds = Dataset.from_pandas(df.assign(labels=df["label"].map(LABEL2ID))[["text", "labels"]])
+            return ds.map(tok, batched=True, remove_columns=["text"])
+        train_ds = to_ds(train_df)
+        eval_ds = to_ds(pd.concat([real_test, malay_test, harm_test], ignore_index=True))
 
         def compute_metrics(p):
             preds = p.predictions.argmax(-1); y = p.label_ids
-            fp = int(((preds == 1) & (y == 0)).sum()); tp = int(((preds == 1) & (y == 1)).sum())
-            return {"fpr": fp / max(1, int((y == 0).sum())), "recall": tp / max(1, int((y == 1).sum())),
+            fp = int(((preds != 0) & (y == 0)).sum()); tp = int(((preds != 0) & (y != 0)).sum())
+            return {"fpr": fp / max(1, int((y == 0).sum())), "recall": tp / max(1, int((y != 0).sum())),
                     "accuracy": float((preds == y).mean())}
 
         targs = TrainingArguments(
@@ -211,13 +267,14 @@ def main():
             per_device_eval_batch_size=args.batch_size * 2,
             warmup_ratio=0.1,
             weight_decay=0.01,
+            group_by_length=True,  # batch similar lengths -> far less padding / MPS memory
             eval_strategy="epoch",
             save_strategy="epoch",
             save_total_limit=1,
             load_best_model_at_end=True,
-            metric_for_best_model="fpr",
-            greater_is_better=False,
-            logging_steps=25,
+            metric_for_best_model="accuracy",  # 3-class accuracy on the held-out mix; fpr alone picks under-trained epochs
+            greater_is_better=True,
+            logging_steps=50,
             report_to=[],
             seed=args.seed,
             use_cpu=not torch.cuda.is_available() and not torch.backends.mps.is_available(),
@@ -233,12 +290,21 @@ def main():
     print("\n=== Held-out evaluation ===")
     report = {
         "base_model": args.base_model,
+        "labels": LABELS,
         "train_size": int(len(train_df)),
+        "train_by_source": dict(Counter(train_df["source"])),
         "real_test": evaluate(model, tokenizer, real_test, args.max_length, "real user inputs (held-out)"),
         "malay_test": evaluate(model, tokenizer, malay_test, args.max_length, "malay dataset (held-out)"),
     }
+    if len(harm_test):
+        report["harmful_test"] = evaluate(model, tokenizer, harm_test, args.max_length, "public harmful (held-out)")
+    if len(ext_test):
+        report["external_test"] = evaluate(model, tokenizer, ext_test, args.max_length, "deepset + xTRam1 official test splits")
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "eval_report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
+    # held-out sets as CSV so they can be uploaded to the benchmark page (never seen in training)
+    real_test[["text", "label"]].to_csv(out_dir / "holdout_real.csv", index=False)
+    malay_test[["text", "label"]].to_csv(out_dir / "holdout_malay.csv", index=False)
     print(f"\nreport -> {out_dir / 'eval_report.json'}")
 
 

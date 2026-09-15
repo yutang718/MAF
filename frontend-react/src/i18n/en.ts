@@ -94,6 +94,8 @@ const en: Record<string, string> = {
   'prompt.riskScore': 'Risk Score',
   'prompt.injectionScore': 'Injection Score',
   'prompt.threatScore': 'Threat Score (Injection + Jailbreak)',
+  'prompt.mafThreatScore': 'Threat Score (Injection + Harmful)',
+  'prompt.harmfulLabel': 'Harmful',
   'prompt.patterns': 'Patterns',
   'prompt.benign': 'Benign',
   'prompt.injectionLabel': 'Injection',

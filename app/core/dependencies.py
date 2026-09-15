@@ -9,7 +9,7 @@ from services.prompt_checker import PromptChecker
 from services.hikma_detector import HikmaDetector
 from services.promptguard_detector import PromptGuardDetector
 from services.proventra_detector import ProventraDetector
-from services.mmbert_detector import ModernGuardDetector, WolfDefenderDetector
+from services.mmbert_detector import ModernGuardDetector, WolfDefenderDetector, MafGuardDetector
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
@@ -34,6 +34,7 @@ class Services:
             cls._instance.proventra_detector = ProventraDetector()
             cls._instance.modernguard_detector = ModernGuardDetector()
             cls._instance.wolfdefender_detector = WolfDefenderDetector()
+            cls._instance.mafguard_detector = MafGuardDetector()
         return cls._instance
 
     def __init__(self):
@@ -82,8 +83,8 @@ class Services:
             except Exception as e:
                 logger.warning(f"Proventra model unavailable: {e}")
 
-            # 8. 初始化 ModernGuard-1 / Wolf Defender 检测器 (mmBERT)
-            for detector in (self.modernguard_detector, self.wolfdefender_detector):
+            # 8. 初始化 ModernGuard-1 / Wolf Defender / MAF Guard 检测器 (mmBERT; MAF Guard 需本地训练产物)
+            for detector in (self.modernguard_detector, self.wolfdefender_detector, self.mafguard_detector):
                 try:
                     logger.info(f"Initializing {detector.name} detector...")
                     detector.initialize()

@@ -1,4 +1,4 @@
-"""ModernGuard-1 and Wolf Defender prompt injection API endpoints (shared router factory)"""
+"""ModernGuard-1, Wolf Defender and MAF Guard prompt injection API endpoints (shared router factory)"""
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 from pydantic import BaseModel, Field
@@ -42,7 +42,7 @@ def make_router(attr: str, description: str) -> APIRouter:
             "initialized": detector._initialized,
             "default_threshold": detector.threshold,
             "max_length": detector.max_length,
-            "classes": ["SAFE", "INJECTION"],
+            "classes": detector.classes,
             "description": description,
         }
 
@@ -56,4 +56,8 @@ modernguard_router = make_router(
 wolfdefender_router = make_router(
     "wolfdefender_detector",
     "Patronus Wolf Defender v2: mmBERT-base binary prompt injection detector (low false-positive, 2k context)",
+)
+mafguard_router = make_router(
+    "mafguard_detector",
+    "MAF Guard: project fine-tuned mmBERT 3-class guard (BENIGN / INJECTION / HARMFUL_REQUEST), trained on real user inputs",
 )

@@ -416,6 +416,7 @@ class BenchmarkService:
             "proventra": services.proventra_detector,
             "modernguard": services.modernguard_detector,
             "wolfdefender": services.wolfdefender_detector,
+            "mafguard": services.mafguard_detector,
         }
 
     def _get_batch_detector(self, services, model_name: str):

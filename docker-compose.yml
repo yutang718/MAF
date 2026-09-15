@@ -15,8 +15,10 @@ services:
       - TRANSFORMERS_VERBOSITY=error
       - PYTHONWARNINGS=ignore::UserWarning
       - HF_HOME=/app/model_cache
+      - MAF_GUARD_MODEL_PATH=/app/trained_models/maf-guard-v2
     volumes:
       - model_cache:/app/model_cache
+      - ./models:/app/trained_models:ro   # trained MAF Guard checkpoint (training/train.py)
     deploy:
       resources:
         limits:

@@ -94,6 +94,8 @@ const zh: Record<string, string> = {
   'prompt.riskScore': '风险分数',
   'prompt.injectionScore': '注入分数',
   'prompt.threatScore': '威胁分数（注入 + 越狱）',
+  'prompt.mafThreatScore': '威胁分数（注入 + 有害请求）',
+  'prompt.harmfulLabel': '有害',
   'prompt.patterns': '模式特征',
   'prompt.benign': '良性',
   'prompt.injectionLabel': '注入',

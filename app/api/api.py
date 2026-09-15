@@ -56,6 +56,12 @@ api_router.include_router(
 )
 
 api_router.include_router(
+    mmbert_guards.mafguard_router,
+    prefix="/mafguard",
+    tags=["mafguard"]
+)
+
+api_router.include_router(
     benchmark.router,
     prefix="/benchmark",
     tags=["benchmark"]

@@ -20,14 +20,15 @@ class ModelThresholds(BaseModel):
     proventra: float = Field(default=0.5, ge=0.0, le=1.0)
     modernguard: float = Field(default=0.5, ge=0.0, le=1.0)
     wolfdefender: float = Field(default=0.5, ge=0.0, le=1.0)
+    mafguard: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
-VALID_MODELS = ["protectai", "hikma", "promptguard", "proventra", "modernguard", "wolfdefender"]
+VALID_MODELS = ["protectai", "hikma", "promptguard", "proventra", "modernguard", "wolfdefender", "mafguard"]
 
 
 class BenchmarkRequest(BaseModel):
     dataset_id: str = Field(..., description="HuggingFace dataset ID")
-    models: List[str] = Field(..., description="Model keys to benchmark: protectai, hikma, promptguard, proventra, modernguard, wolfdefender")
+    models: List[str] = Field(..., description="Model keys to benchmark: protectai, hikma, promptguard, proventra, modernguard, wolfdefender, mafguard")
     max_samples: int = Field(default=200, ge=10, le=1000)
     thresholds: ModelThresholds = Field(default_factory=ModelThresholds)
 
@@ -62,6 +63,7 @@ async def start_benchmark(
         "proventra": request.thresholds.proventra,
         "modernguard": request.thresholds.modernguard,
         "wolfdefender": request.thresholds.wolfdefender,
+        "mafguard": request.thresholds.mafguard,
     }
     run_id = await _benchmark_service.start_benchmark(
         dataset_id=request.dataset_id,
@@ -165,7 +167,8 @@ async def upload_and_run(
             continue
         if label_col and pd.notna(row.get(label_col)):
             raw_label = str(row[label_col]).strip().lower()
-            if raw_label in ("1", "injection", "attack", "malicious", "jailbreak", "unsafe"):
+            # harmful_request (training/clean_labels.py) should also be blocked -> positive class
+            if raw_label in ("1", "injection", "attack", "malicious", "jailbreak", "unsafe", "harmful_request", "harmful"):
                 expected = "injection"
             elif raw_label in ("0", "benign", "safe", "normal", "legitimate"):
                 expected = "benign"

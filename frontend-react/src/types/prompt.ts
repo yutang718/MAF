@@ -51,6 +51,11 @@ export interface ProventraResult {
   confidence: number
 }
 
+export interface MafGuardResult extends ProventraResult {
+  threat_score: number
+  scores: { BENIGN: number; INJECTION: number; HARMFUL_REQUEST: number }
+}
+
 export interface ModelInfo {
   id: string
   name: string

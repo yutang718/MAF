@@ -18,16 +18,19 @@ excluded from training and should be handled by the LLM's own policy / authz.
 
 ## 2. Train
 
-The project `venv/` is an x86_64 (Rosetta) Python — torch tops out at 2.2 there and MPS
-training thrashes. Use a native arm64 environment on Apple Silicon:
+The project `venv/` must be a native arm64 Python on Apple Silicon (an x86_64 / Rosetta
+interpreter caps torch at 2.2 and MPS training thrashes). `.python-version` points at a
+uv-managed arm64 CPython registered with pyenv:
 
 ```bash
-uv python install cpython-3.11-macos-aarch64-none
-uv venv --python cpython-3.11-macos-aarch64-none .venv-train
-uv pip install --python .venv-train/bin/python "torch>=2.6" "transformers==4.49.0" \
-    datasets accelerate pandas scikit-learn sentencepiece protobuf
-.venv-train/bin/python training/train.py           # Wolf Defender base, 3 epochs, lr 2e-5
+uv python install cpython-3.10-macos-aarch64-none
+ln -s ~/.local/share/uv/python/cpython-3.10.*-macos-aarch64-none ~/.pyenv/versions/3.10.20
+python -m venv venv && venv/bin/pip install torch -r app/requirements.txt -r training/requirements.txt
+venv/bin/python -m spacy download en_core_web_sm
+venv/bin/python training/train.py           # Wolf Defender base, 3 epochs, lr 2e-5
 ```
+
+Check with `venv/bin/python -c "import platform; print(platform.machine())"` → `arm64`.
 
 Classes: `benign` (0) / `injection` (1) / `harmful_request` (2). Threat score = 1 − P(benign).
 

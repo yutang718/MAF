@@ -13,4 +13,3 @@ ENV/
 data/*.xlsx
 data/~*
 models/
-.venv-train/

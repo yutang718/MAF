@@ -211,7 +211,7 @@ function AnalysisTab({
 
           {/* EVYD Defender Config (project fine-tuned) */}
           <ModelConfigCard
-            name="EVYD Defender V2"
+            name="EVYD Defender V3"
             tag="Fine-tuned · 3-Class"
             config={mafConfig}
             onChange={setMafConfig}
@@ -280,7 +280,7 @@ function AnalysisTab({
 
           {mafConfig.enabled && mafResult && (
             <ModelResultCard
-              title="EVYD Defender V2"
+              title="EVYD Defender V3"
               safe={mafResult.is_safe}
               label={mafResult.label}
               score={mafResult.threat_score}
@@ -458,19 +458,19 @@ function AvailableModelsTab() {
         />
 
         <ModelInfoCard
-          name="EVYD Defender V2"
-          modelId="models/maf-guard-v2 (fine-tuned from Wolf Defender)"
+          name="EVYD Defender V3"
+          modelId="models/evyd-defender-v3 (fine-tuned from Wolf Defender v2)"
           specs={[
             [t('prompt.architecture'), 'ModernBERT / mmBERT-base, embeddings frozen'],
             [t('prompt.runtime'), 'PyTorch (Safetensors, local)'],
-            [t('prompt.modelLanguages'), 'EN / MS / ZH (real app traffic) + mmBERT backbone'],
+            [t('prompt.modelLanguages'), 'EN / ZH / MS (168k training rows, 30k Malay)'],
             [t('prompt.classes'), '3 — Benign / Injection / Harmful request'],
             [t('prompt.size'), '~1.2 GB'],
             [t('prompt.license'), 'Internal (base: Apache-2.0)'],
-            [t('prompt.maxTokens'), '256 (training) / 2048'],
+            [t('prompt.maxTokens'), '128 (training) / 2048'],
           ]}
-          strengths={['Trained on ~3.5k real user inputs — knows "log my medication" and "answer in Malay" are benign', 'Separate harmful-request class (malicious code, data exfiltration)', '11k-sample recipe: real + Malay + deepset / xTRam1 / jailbreak + harmful datasets', 'Held-out FPR / recall tracked in models/*/eval_report.json']}
-          limitations={['Only ~30 real injection samples — rare attack styles may be missed', 'Must be retrained as traffic changes (training/train.py)', 'Requires the local checkpoint to be mounted (MAF_GUARD_MODEL_PATH)']}
+          strengths={['168k samples: EN + ZH public injection / jailbreak / harmful sets, 30k machine-translated Malay, real app traffic', 'Two-stage training: broad corpus, then domain adaptation on real inputs', 'Malay: 98.9% injection recall at 0.7% FPR on translated hold-out', 'Held-out FPR / recall per split in models/*/eval_report.json']}
+          limitations={['Malay training data is machine-translated (NLLB-1.3B, similarity-filtered)', 'Must be retrained as traffic changes (training/train.py)', 'Requires the local checkpoint to be mounted (MAF_GUARD_MODEL_PATH)']}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -767,7 +767,7 @@ function BenchmarkTab() {
     { key: 'proventra', name: 'Proventra mDeBERTa v3', defaultThreshold: 0.5 },
     { key: 'modernguard', name: 'ModernGuard-1', defaultThreshold: 0.5 },
     { key: 'wolfdefender', name: 'Wolf Defender v2', defaultThreshold: 0.5 },
-    { key: 'mafguard', name: 'EVYD Defender V2', defaultThreshold: 0.5 },
+    { key: 'mafguard', name: 'EVYD Defender V3', defaultThreshold: 0.5 },
   ]
 
   // Persist state to localStorage
@@ -1076,7 +1076,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
     proventra: 'Proventra mDeBERTa v3',
     modernguard: 'ModernGuard-1',
     wolfdefender: 'Wolf Defender v2',
-    mafguard: 'EVYD Defender V2',
+    mafguard: 'EVYD Defender V3',
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)

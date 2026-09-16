@@ -52,6 +52,8 @@ def parse_args():
     # DATA RECIPE
     p.add_argument("--dataset-dir", default=None,
                    help="use a prebuilt corpus (training/build_dataset_v3.py + translate.py) instead of the v2 recipe")
+    p.add_argument("--public-frac", type=float, default=1.0,
+                   help="with --dataset-dir: keep only this fraction of non-project rows (stage-2 domain adaptation)")
     p.add_argument("--sim-threshold", type=float, default=0.55,
                    help="drop MS translations whose source/translation similarity is below this")
     p.add_argument("--no-public", action="store_true", help="train on real + Malay data only")
@@ -231,6 +233,9 @@ def main():
         train_df, tests = load_prebuilt(args)
         # oversample the project's own data so the public corpus does not swamp it
         domain = train_df[train_df["source"].isin(["real", "malay"])]
+        if args.public_frac < 1.0:
+            public = train_df[~train_df["source"].isin(["real", "malay"])].sample(frac=args.public_frac, random_state=args.seed)
+            train_df = pd.concat([domain, public], ignore_index=True)
         extra = [domain] * (args.domain_repeat - 1) + [domain[domain["label"] != "benign"]] * (args.domain_attack_repeat - 1)
         train_df = pd.concat([train_df] + extra, ignore_index=True).sample(frac=1, random_state=args.seed).reset_index(drop=True)
     else:

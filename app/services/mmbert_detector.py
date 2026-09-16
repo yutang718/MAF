@@ -140,7 +140,7 @@ class MafGuardDetector(MmBertInjectionDetector):
     Loaded from a local directory (MAF_GUARD_MODEL_PATH), so it is optional at runtime.
     """
 
-    DEFAULT_PATH = "models/maf-guard-v2"
+    DEFAULT_PATH = "models/evyd-defender-v3"
 
     def __init__(self):
         import os

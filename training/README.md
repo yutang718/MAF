@@ -51,10 +51,26 @@ Targets: real-benign FPR < 0.3%, obvious-injection recall > 95%.
 
 Speed: ~0.7 steps/s on an M-series Mac → 3 epochs over 11.5k samples ≈ 30–50 min.
 
+## 2b. v3: large multilingual corpus
+
+```bash
+venv/bin/python training/build_dataset_v3.py                       # ~136k EN/ZH rows + translation queue
+venv/bin/python training/translate.py --input data/v3/to_translate.jsonl --output data/v3/translated.jsonl
+venv/bin/python training/train.py --dataset-dir data/v3 --max-length 128 --epochs 1 \
+    --output-dir models/evyd-defender-v3-stage1                    # stage 1: 168k rows, ~1.5 h
+venv/bin/python training/train.py --dataset-dir data/v3 --base-model models/evyd-defender-v3-stage1 \
+    --public-frac 0.1 --domain-repeat 4 --domain-attack-repeat 8 --lr 1e-5 --epochs 1 --max-length 128 \
+    --output-dir models/evyd-defender-v3                           # stage 2: domain adaptation, ~30 min
+```
+
+Stage 1 alone learns the broad attack space but lets the 168k public rows swamp the
+project's own traffic (real-input FPR 0.4% -> 1.8%); stage 2 re-weights the real + Malay
+data at a low learning rate and recovers it while keeping stage-1 coverage.
+
 ## 3. Use the model
 
 `MafGuardDetector` (`app/services/mmbert_detector.py`) loads the checkpoint from
-`MAF_GUARD_MODEL_PATH` (default `models/maf-guard-v2`); docker-compose mounts `./models`
+`MAF_GUARD_MODEL_PATH` (default `models/evyd-defender-v3`); docker-compose mounts `./models`
 read-only into the container. It is exposed as `/api/v1/mafguard/detect`, as model key
 `mafguard` in the benchmark API, and as "EVYD Defender V2" in the UI. If the directory is
 missing the detector is simply reported unavailable.

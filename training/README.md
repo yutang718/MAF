@@ -56,5 +56,5 @@ Speed: ~0.7 steps/s on an M-series Mac → 3 epochs over 11.5k samples ≈ 30–
 `MafGuardDetector` (`app/services/mmbert_detector.py`) loads the checkpoint from
 `MAF_GUARD_MODEL_PATH` (default `models/maf-guard-v2`); docker-compose mounts `./models`
 read-only into the container. It is exposed as `/api/v1/mafguard/detect`, as model key
-`mafguard` in the benchmark API, and as "MAF Guard v2" in the UI. If the directory is
+`mafguard` in the benchmark API, and as "EVYD Defender V2" in the UI. If the directory is
 missing the detector is simply reported unavailable.

@@ -8,6 +8,7 @@ export interface ProventraResult {
   threshold: number
   label: string
   confidence: number
+  latency_ms?: number
 }
 
 export interface MafGuardResult extends ProventraResult {

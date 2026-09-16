@@ -8,7 +8,7 @@ fastapi==0.104.1
 uvicorn==0.24.0
 
 # ML models (torch installed separately via CPU index in Dockerfile)
-transformers>=4.48.0,<4.50.0  # ModernBERT (ModernGuard / Wolf Defender / MAF Guard) needs >=4.48
+transformers>=4.48.0,<4.50.0  # ModernBERT (ModernGuard / Wolf Defender / EVYD Defender) needs >=4.48
 tokenizers>=0.15
 spacy>=3.7.0
 presidio-analyzer>=2.2.33

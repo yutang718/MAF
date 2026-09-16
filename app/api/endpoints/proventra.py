@@ -1,4 +1,5 @@
 """Proventra mDeBERTa-v3 prompt injection API endpoints"""
+import time
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 from pydantic import BaseModel, Field
@@ -25,9 +26,11 @@ async def detect_injection(
             detail="Proventra model not available. Check model download status."
         )
     try:
+        start = time.perf_counter()
         result = services.proventra_detector.detect(
             text=request.text, threshold=request.threshold
         )
+        result["latency_ms"] = round((time.perf_counter() - start) * 1000, 1)
         return result
     except Exception as e:
         logger.error(f"Proventra detection error: {e}")

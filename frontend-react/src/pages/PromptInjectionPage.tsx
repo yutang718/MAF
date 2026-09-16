@@ -166,7 +166,7 @@ function AnalysisTab({
         if (modelIdx === 5) setWolfResult(r.value as ProventraResult)
         if (modelIdx === 6) setMafResult(r.value as MafGuardResult)
       } else {
-        const names: Record<number, string> = { 3: 'Proventra', 4: 'ModernGuard', 5: 'Wolf Defender', 6: 'MAF Guard' }
+        const names: Record<number, string> = { 3: 'Proventra', 4: 'ModernGuard', 5: 'Wolf Defender', 6: 'EVYD Defender' }
         setErrors(prev => [...prev, `${names[modelIdx]}: ${String(r.reason)}`])
       }
     })
@@ -209,9 +209,9 @@ function AnalysisTab({
             thresholdLabel={t('prompt.injectionThreshold')}
           />
 
-          {/* MAF Guard Config (project fine-tuned) */}
+          {/* EVYD Defender Config (project fine-tuned) */}
           <ModelConfigCard
-            name="MAF Guard v2"
+            name="EVYD Defender V2"
             tag="Fine-tuned · 3-Class"
             config={mafConfig}
             onChange={setMafConfig}
@@ -250,6 +250,7 @@ function AnalysisTab({
               score={proventraResult.injection_score}
               scoreLabel={t('prompt.injectionScore')}
               threshold={proventraConfig.threshold}
+              latencyMs={proventraResult.latency_ms}
             />
           )}
 
@@ -261,6 +262,7 @@ function AnalysisTab({
               score={modernguardResult.injection_score}
               scoreLabel={t('prompt.injectionScore')}
               threshold={modernguardConfig.threshold}
+              latencyMs={modernguardResult.latency_ms}
             />
           )}
 
@@ -272,17 +274,19 @@ function AnalysisTab({
               score={wolfResult.injection_score}
               scoreLabel={t('prompt.injectionScore')}
               threshold={wolfConfig.threshold}
+              latencyMs={wolfResult.latency_ms}
             />
           )}
 
           {mafConfig.enabled && mafResult && (
             <ModelResultCard
-              title="MAF Guard v2"
+              title="EVYD Defender V2"
               safe={mafResult.is_safe}
               label={mafResult.label}
               score={mafResult.threat_score}
               scoreLabel={t('prompt.mafThreatScore')}
               threshold={mafConfig.threshold}
+              latencyMs={mafResult.latency_ms}
               extra={(
                 <div className="mt-3 pt-3 border-t border-cyber-border/40">
                   <div className="grid grid-cols-3 gap-2 text-center">
@@ -342,14 +346,17 @@ function ModelConfigCard({ name, tag, config, onChange, thresholdLabel, extraCon
 
 // ─── Model Result Card ───────────────────────────────────────────────────────
 
-function ModelResultCard({ title, safe, label, score, scoreLabel, threshold, extra }: {
+function ModelResultCard({ title, safe, label, score, scoreLabel, threshold, latencyMs, extra }: {
   title: string; safe: boolean; label: string; score: number; scoreLabel: string
-  threshold: number; extra?: React.ReactNode
+  threshold: number; latencyMs?: number; extra?: React.ReactNode
 }) {
   const pct = (score * 100).toFixed(1)
   return (
     <div className={`panel ${safe ? 'border-cyber-green/20 shadow-glow-green' : 'border-cyber-danger/20 shadow-glow-red'}`}>
-      <h4 className="text-[15px] font-semibold text-cyber-text mb-4">{title}</h4>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-[15px] font-semibold text-cyber-text">{title}</h4>
+        {latencyMs !== undefined && <LatencyBadge ms={latencyMs} />}
+      </div>
       <div className="flex items-center justify-between mb-4">
         <span className={safe ? 'badge-safe' : 'badge-danger'}>{label}</span>
         <span className="text-2xl font-mono font-bold text-cyber-text">{pct}%</span>
@@ -371,6 +378,11 @@ function ModelResultCard({ title, safe, label, score, scoreLabel, threshold, ext
       {extra}
     </div>
   )
+}
+
+function LatencyBadge({ ms }: { ms: number }) {
+  const cls = ms < 150 ? 'text-cyber-green' : ms < 500 ? 'text-amber-400' : 'text-cyber-danger'
+  return <span className={`text-xs font-mono ${cls}`} title="inference time">⏱ {ms.toFixed(0)} ms</span>
 }
 
 function ScoreCell({ label, value, color }: { label: string; value: number; color: string }) {
@@ -446,7 +458,7 @@ function AvailableModelsTab() {
         />
 
         <ModelInfoCard
-          name="MAF Guard v2"
+          name="EVYD Defender V2"
           modelId="models/maf-guard-v2 (fine-tuned from Wolf Defender)"
           specs={[
             [t('prompt.architecture'), 'ModernBERT / mmBERT-base, embeddings frozen'],
@@ -531,17 +543,17 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<Array<{
     text: string; expected: string; lang: string; category: string
-    vLabel: string; vScore: number
-    mLabel: string; mScore: number
-    wLabel: string; wScore: number
-    fLabel: string; fScore: number
+    vLabel: string; vScore: number; vMs: number
+    mLabel: string; mScore: number; mMs: number
+    wLabel: string; wScore: number; wMs: number
+    fLabel: string; fScore: number; fMs: number
   }>>([])
 
   const run = async () => {
     setLoading(true)
     const out = []
     for (const s of batchSamples) {
-      const row = { text: s.text, expected: s.label, lang: s.lang, category: s.category, vLabel: '-', vScore: 0, mLabel: '-', mScore: 0, wLabel: '-', wScore: 0, fLabel: '-', fScore: 0 }
+      const row = { text: s.text, expected: s.label, lang: s.lang, category: s.category, vLabel: '-', vScore: 0, vMs: 0, mLabel: '-', mScore: 0, mMs: 0, wLabel: '-', wScore: 0, wMs: 0, fLabel: '-', fScore: 0, fMs: 0 }
 
       const promises: Promise<unknown>[] = []
       const keys: string[] = []
@@ -556,10 +568,10 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
         if (r.status === 'fulfilled') {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const v = r.value as any
-          if (keys[idx] === 'v') { row.vLabel = (v.label as string).toLowerCase(); row.vScore = v.injection_score }
-          if (keys[idx] === 'm') { row.mLabel = (v.label as string).toLowerCase(); row.mScore = v.injection_score }
-          if (keys[idx] === 'w') { row.wLabel = (v.label as string).toLowerCase(); row.wScore = v.injection_score }
-          if (keys[idx] === 'f') { row.fLabel = (v.label as string).toLowerCase(); row.fScore = v.threat_score }
+          if (keys[idx] === 'v') { row.vLabel = (v.label as string).toLowerCase(); row.vScore = v.injection_score; row.vMs = v.latency_ms ?? 0 }
+          if (keys[idx] === 'm') { row.mLabel = (v.label as string).toLowerCase(); row.mScore = v.injection_score; row.mMs = v.latency_ms ?? 0 }
+          if (keys[idx] === 'w') { row.wLabel = (v.label as string).toLowerCase(); row.wScore = v.injection_score; row.wMs = v.latency_ms ?? 0 }
+          if (keys[idx] === 'f') { row.fLabel = (v.label as string).toLowerCase(); row.fScore = v.threat_score; row.fMs = v.latency_ms ?? 0 }
         } else {
           if (keys[idx] === 'v') row.vLabel = 'error'
           if (keys[idx] === 'm') row.mLabel = 'error'
@@ -603,7 +615,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
               {proventraConfig.enabled && <th className="table-header">Proventra</th>}
               {modernguardConfig.enabled && <th className="table-header">ModernGuard</th>}
               {wolfConfig.enabled && <th className="table-header">Wolf</th>}
-              {mafConfig.enabled && <th className="table-header">MAF Guard</th>}
+              {mafConfig.enabled && <th className="table-header">EVYD Defender</th>}
             </tr></thead>
             <tbody>
               {results.map((r, i) => (
@@ -619,6 +631,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.vLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.vScore.toFixed(3)}</span>
+                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.vMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -627,6 +640,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.mLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.mScore.toFixed(3)}</span>
+                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.mMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -635,6 +649,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.wLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.wScore.toFixed(3)}</span>
+                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.wMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -643,6 +658,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.fLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.fScore.toFixed(3)}</span>
+                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.fMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -751,7 +767,7 @@ function BenchmarkTab() {
     { key: 'proventra', name: 'Proventra mDeBERTa v3', defaultThreshold: 0.5 },
     { key: 'modernguard', name: 'ModernGuard-1', defaultThreshold: 0.5 },
     { key: 'wolfdefender', name: 'Wolf Defender v2', defaultThreshold: 0.5 },
-    { key: 'mafguard', name: 'MAF Guard v2', defaultThreshold: 0.5 },
+    { key: 'mafguard', name: 'EVYD Defender V2', defaultThreshold: 0.5 },
   ]
 
   // Persist state to localStorage
@@ -1060,7 +1076,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
     proventra: 'Proventra mDeBERTa v3',
     modernguard: 'ModernGuard-1',
     wolfdefender: 'Wolf Defender v2',
-    mafguard: 'MAF Guard v2',
+    mafguard: 'EVYD Defender V2',
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)

@@ -1,4 +1,5 @@
-"""ModernGuard-1, Wolf Defender and MAF Guard prompt injection API endpoints (shared router factory)"""
+"""ModernGuard-1, Wolf Defender and EVYD Defender prompt injection API endpoints (shared router factory)"""
+import time
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 from pydantic import BaseModel, Field
@@ -29,7 +30,10 @@ def make_router(attr: str, description: str) -> APIRouter:
                 detail=f"{detector.name} model not available. Check model download status."
             )
         try:
-            return detector.detect(text=request.text, threshold=request.threshold)
+            start = time.perf_counter()
+            result = detector.detect(text=request.text, threshold=request.threshold)
+            result["latency_ms"] = round((time.perf_counter() - start) * 1000, 1)
+            return result
         except Exception as e:
             logger.error(f"{detector.name} detection error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -59,5 +63,5 @@ wolfdefender_router = make_router(
 )
 mafguard_router = make_router(
     "mafguard_detector",
-    "MAF Guard: project fine-tuned mmBERT 3-class guard (BENIGN / INJECTION / HARMFUL_REQUEST), trained on real user inputs",
+    "EVYD Defender: project fine-tuned mmBERT 3-class guard (BENIGN / INJECTION / HARMFUL_REQUEST), trained on real user inputs",
 )

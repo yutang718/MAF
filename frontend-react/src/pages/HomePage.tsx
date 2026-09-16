@@ -105,7 +105,7 @@ function BenchmarkSection({ t }: { t: (key: string) => string }) {
       </div>
       <div className="grid grid-cols-4 gap-5">
         <BenchmarkCard
-          name="MAF Guard v2"
+          name="EVYD Defender V2"
           metrics={[
             { label: t('home.benchmark.f1'), value: 0.828, color: 'bg-cyber-accent' },
             { label: t('home.benchmark.recall'), value: 0.857, color: 'bg-cyber-accent' },
@@ -159,7 +159,7 @@ function TechStackSection({ t }: { t: (key: string) => string }) {
             <th className="table-header">{t('home.table.size')}</th>
           </tr></thead>
           <tbody>
-            <Row cells={[t('home.pipeline.promptFineTuned'), 'MAF Guard v2 (mmBERT)', 'PyTorch', '1.2 GB']} />
+            <Row cells={[t('home.pipeline.promptFineTuned'), 'EVYD Defender V2 (mmBERT)', 'PyTorch', '1.2 GB']} />
             <Row cells={[t('home.pipeline.promptMulti'), 'Proventra mDeBERTa v3', 'PyTorch', '300 MB']} />
             <Row cells={[t('home.pipeline.promptMulti'), 'ModernGuard-1 · Wolf Defender v2', 'PyTorch', '1.2 GB ×2']} />
             <Row cells={[t('home.pipeline.pii'), 'Presidio + spaCy', 'CPU', '~200 MB']} />

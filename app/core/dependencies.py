@@ -55,7 +55,7 @@ class Services:
             except Exception as e:
                 logger.warning(f"Proventra model unavailable: {e}")
 
-            # 4. 初始化 ModernGuard-1 / Wolf Defender / MAF Guard 检测器 (mmBERT; MAF Guard 需本地训练产物)
+            # 4. 初始化 ModernGuard-1 / Wolf Defender / EVYD Defender 检测器 (mmBERT; EVYD Defender 需本地训练产物)
             for detector in (self.modernguard_detector, self.wolfdefender_detector, self.mafguard_detector):
                 try:
                     logger.info(f"Initializing {detector.name} detector...")

@@ -145,7 +145,7 @@ class MafGuardDetector(MmBertInjectionDetector):
     def __init__(self):
         import os
         path = os.getenv("MAF_GUARD_MODEL_PATH", self.DEFAULT_PATH)
-        super().__init__(path, "MAF Guard")
+        super().__init__(path, "EVYD Defender")
         self.classes = ["BENIGN", "INJECTION", "HARMFUL_REQUEST"]
 
     def initialize(self) -> None:

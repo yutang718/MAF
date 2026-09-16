@@ -67,14 +67,45 @@ Stage 1 alone learns the broad attack space but lets the 168k public rows swamp 
 project's own traffic (real-input FPR 0.4% -> 1.8%); stage 2 re-weights the real + Malay
 data at a low learning rate and recovers it while keeping stage-1 coverage.
 
-## 3. Publish
+## 2c. v4: consult benign set + unauthorized-access harmful set
 
-The model lives in the private Hub repo `yutang718/evyd-defender-v3` (tag `v3`). To push a
-new version: log in once (`venv/bin/hf auth login`), then
+v3 blocked 60 / 10k of the QA team's benign consult questions (EN/ZH/MS) at threshold 0.9:
+platform/account questions ("delete my consultation record"), "not health related"
+meta-questions and short Malay complaints all scored ≥ 0.99, so no threshold fixes it.
+v4 re-runs stage 2 with two extra domain sources:
 
 ```bash
-venv/bin/hf upload yutang718/evyd-defender-v3 models/evyd-defender-v3 . \
-    --include "config.json" "model.safetensors" "tokenizer*.json" "special_tokens_map.json" "README.md" "eval_report.json"
+# consult set: xlsx D/E columns -> pairs -> Malay via NLLB -> data/eval/medical_consult_benign.jsonl
+venv/bin/python training/translate.py --input data/eval/medical_consult_to_translate.jsonl \
+    --output data/eval/medical_consult_translated.jsonl
+venv/bin/python training/eval_benign_set.py --model models/evyd-defender-v3     # builds the set + scores it
+venv/bin/python training/build_dataset_v4.py                                    # v3 corpus + consult + data/authz
+venv/bin/python training/train.py --dataset-dir data/v4 --base-model models/evyd-defender-v3-stage1 \
+    --public-frac 0.1 --domain-repeat 4 --domain-attack-repeat 8 --source-repeat consult=2 \
+    --lr 1e-5 --epochs 1 --max-length 128 --output-dir models/evyd-defender-v4
+```
+
+`data/authz/*.txt` (hand-written, 61 harmful + 15 benign per language) is required: with the
+consult set alone the model unlearns the modify/delete/record/password vocabulary and stops
+flagging "list all patient records" (real harmful recall 0.875 -> 0.75). The harmful rows are
+requests for *other users' / all patients'* data, DB dumps and privilege claims; the benign
+rows are the same verbs on the user's own data. Both sets are split 80/20 by item id so the
+three language versions of one item stay on one side; held-out splits `consult` and `authz`
+appear in `eval_report.json`.
+
+v4 at 0.9: consult held-out 1 / 2000 blocked (v3: 60 / 10000 on the full set), authz harmful
+recall 0.88, real / public / external within ±0.3% FPR of v3.
+
+## 3. Publish
+
+The model lives in the private Hub repo `yutang718/evyd-defender-v3`. The repo id is kept
+stable (it is the `MAF_GUARD_MODEL_PATH` default) while its weights are updated in place, so
+the current V4 checkpoint is published there too. To push a new version: log in once
+(`venv/bin/hf auth login`), then upload the latest local checkpoint directory:
+
+```bash
+venv/bin/hf upload yutang718/evyd-defender-v3 models/evyd-defender-v4 . \
+    --include "config.json" "model.safetensors" "tokenizer*.json" "special_tokens_map.json" "eval_report.json"
 ```
 
 `MAF_GUARD_MODEL_PATH` accepts either the local directory or the Hub id

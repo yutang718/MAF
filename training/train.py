@@ -33,6 +33,8 @@ LABELS = ["benign", "injection", "harmful_request"]
 LABEL2ID = {l: i for i, l in enumerate(LABELS)}
 ID2LABEL = {0: "BENIGN", 1: "INJECTION", 2: "HARMFUL_REQUEST"}
 THRESHOLDS = [0.5, 0.8, 0.9, 0.95, 0.98, 0.99]
+# project-specific sources that get oversampled (--domain-repeat) instead of thinned (--public-frac)
+DOMAIN_SOURCES = ["real", "malay", "consult", "authz"]
 
 
 def parse_args():
@@ -65,6 +67,8 @@ def parse_args():
                    help="repeat real + Malay rows this many times so public data does not swamp the target distribution")
     p.add_argument("--domain-attack-repeat", type=int, default=4,
                    help="repeat real + Malay injection/harmful rows this many times (they are rare: ~300 rows)")
+    p.add_argument("--source-repeat", nargs="*", default=[], metavar="SOURCE=N",
+                   help="override --domain-repeat for one domain source, e.g. consult=2 (the consult set is ~8k rows)")
     return p.parse_args()
 
 
@@ -232,11 +236,15 @@ def main():
     if args.dataset_dir:
         train_df, tests = load_prebuilt(args)
         # oversample the project's own data so the public corpus does not swamp it
-        domain = train_df[train_df["source"].isin(["real", "malay"])]
+        domain = train_df[train_df["source"].isin(DOMAIN_SOURCES)]
         if args.public_frac < 1.0:
-            public = train_df[~train_df["source"].isin(["real", "malay"])].sample(frac=args.public_frac, random_state=args.seed)
+            public = train_df[~train_df["source"].isin(DOMAIN_SOURCES)].sample(frac=args.public_frac, random_state=args.seed)
             train_df = pd.concat([domain, public], ignore_index=True)
-        extra = [domain] * (args.domain_repeat - 1) + [domain[domain["label"] != "benign"]] * (args.domain_attack_repeat - 1)
+        repeat = {k: int(v) for k, v in (x.split("=") for x in args.source_repeat)}
+        extra = []
+        for src, g in domain.groupby("source"):
+            extra += [g] * (repeat.get(src, args.domain_repeat) - 1)
+            extra += [g[g["label"] != "benign"]] * (args.domain_attack_repeat - 1)
         train_df = pd.concat([train_df] + extra, ignore_index=True).sample(frac=1, random_state=args.seed).reset_index(drop=True)
     else:
         real_train, real_test = load_real(args.test_frac, args.seed)

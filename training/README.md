@@ -67,7 +67,20 @@ Stage 1 alone learns the broad attack space but lets the 168k public rows swamp 
 project's own traffic (real-input FPR 0.4% -> 1.8%); stage 2 re-weights the real + Malay
 data at a low learning rate and recovers it while keeping stage-1 coverage.
 
-## 3. Use the model
+## 3. Publish
+
+The model lives in the private Hub repo `yutang718/evyd-defender-v3` (tag `v3`). To push a
+new version: log in once (`venv/bin/hf auth login`), then
+
+```bash
+venv/bin/hf upload yutang718/evyd-defender-v3 models/evyd-defender-v3 . \
+    --include "config.json" "model.safetensors" "tokenizer*.json" "special_tokens_map.json" "README.md" "eval_report.json"
+```
+
+`MAF_GUARD_MODEL_PATH` accepts either the local directory or the Hub id
+(`yutang718/evyd-defender-v3`, needs `HF_TOKEN` for a private repo).
+
+## 4. Use the model
 
 `MafGuardDetector` (`app/services/mmbert_detector.py`) loads the checkpoint from
 `MAF_GUARD_MODEL_PATH` (default `models/evyd-defender-v3`); docker-compose mounts `./models`

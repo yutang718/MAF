@@ -13,3 +13,5 @@ ENV/
 data/*.xlsx
 data/~*
 models/
+data/v3/raw/
+data/v3/*.jsonl

@@ -50,6 +50,10 @@ def parse_args():
                    help="also fine-tune the embedding table (256k vocab, 2/3 of the params); frozen by default")
     p.add_argument("--eval-only", action="store_true", help="skip training; evaluate --output-dir (or --base-model)")
     # DATA RECIPE
+    p.add_argument("--dataset-dir", default=None,
+                   help="use a prebuilt corpus (training/build_dataset_v3.py + translate.py) instead of the v2 recipe")
+    p.add_argument("--sim-threshold", type=float, default=0.55,
+                   help="drop MS translations whose source/translation similarity is below this")
     p.add_argument("--no-public", action="store_true", help="train on real + Malay data only")
     p.add_argument("--n-xtram", type=int, default=3000, help="xTRam1/safe-guard samples (balanced)")
     p.add_argument("--n-harmful", type=int, default=2500, help="LLM-LAT/harmful-dataset samples")
@@ -152,6 +156,25 @@ def load_public(args):
     return pd.concat(train, ignore_index=True), harm_test, pd.concat(ext, ignore_index=True)
 
 
+def load_prebuilt(args):
+    """Corpus from data/<dir>/{train,test,translated}.jsonl -> (train_df, {split_name: test_df})."""
+    d = Path(args.dataset_dir)
+    read = lambda f: pd.read_json(d / f, lines=True) if (d / f).exists() else pd.DataFrame()
+    train, test, tr = read("train.jsonl"), read("test.jsonl"), read("translated.jsonl")
+    if len(tr):
+        ok = tr[tr["sim"] >= args.sim_threshold]
+        print(f"  translations: {len(tr)} total, {len(ok)} kept at sim>={args.sim_threshold} "
+              f"(median sim {tr['sim'].median():.2f})")
+        ms = pd.DataFrame({"text": ok["ms"], "label": ok["label"], "lang": "ms",
+                           "source": "translated-" + ok["lang"], "split": ok["split"]})
+        ms = ms[ms["text"].str.strip().str.len() >= 3].drop_duplicates("text")
+        train = pd.concat([train, ms[ms["split"] == "train"].drop(columns="split")], ignore_index=True)
+        test = pd.concat([test, ms[ms["split"] == "test"].assign(split="malay-translated")], ignore_index=True)
+    train = train.drop_duplicates("text").sample(frac=1, random_state=args.seed).reset_index(drop=True)
+    tests = {name: g.reset_index(drop=True) for name, g in test.groupby("split")}
+    return train, tests
+
+
 # ---------------------------------------------------------------------------
 # Eval
 # ---------------------------------------------------------------------------
@@ -204,26 +227,37 @@ def main():
     out_dir = Path(args.output_dir)
 
     print("Loading data...")
-    real_train, real_test = load_real(args.test_frac, args.seed)
-    malay_train, malay_test = load_malay(args.test_frac, args.seed)
-    if args.no_public:
-        public_train = harm_test = ext_test = pd.DataFrame(columns=["text", "label", "source"])
+    if args.dataset_dir:
+        train_df, tests = load_prebuilt(args)
+        # oversample the project's own data so the public corpus does not swamp it
+        domain = train_df[train_df["source"].isin(["real", "malay"])]
+        extra = [domain] * (args.domain_repeat - 1) + [domain[domain["label"] != "benign"]] * (args.domain_attack_repeat - 1)
+        train_df = pd.concat([train_df] + extra, ignore_index=True).sample(frac=1, random_state=args.seed).reset_index(drop=True)
     else:
-        public_train, harm_test, ext_test = load_public(args)
-    domain = pd.concat([real_train, malay_train], ignore_index=True)
-    train_df = pd.concat([domain, public_train], ignore_index=True)
-    # never let a test text leak into train via a public-dataset duplicate
-    held = set(real_test["text"]) | set(malay_test["text"]) | set(harm_test["text"]) | set(ext_test["text"])
-    train_df = train_df[~train_df["text"].isin(held)].drop_duplicates("text")
-    # oversample the domain data (after dedup so public duplicates cannot be repeated)
-    extra = [domain] * (args.domain_repeat - 1) + [domain[domain["label"] != "benign"]] * (args.domain_attack_repeat - 1)
-    train_df = pd.concat([train_df] + extra, ignore_index=True)
-    train_df = train_df.sample(frac=1, random_state=args.seed).reset_index(drop=True)
+        real_train, real_test = load_real(args.test_frac, args.seed)
+        malay_train, malay_test = load_malay(args.test_frac, args.seed)
+        if args.no_public:
+            public_train = harm_test = ext_test = pd.DataFrame(columns=["text", "label", "source"])
+        else:
+            public_train, harm_test, ext_test = load_public(args)
+        domain = pd.concat([real_train, malay_train], ignore_index=True)
+        train_df = pd.concat([domain, public_train], ignore_index=True)
+        # never let a test text leak into train via a public-dataset duplicate
+        held = set(real_test["text"]) | set(malay_test["text"]) | set(harm_test["text"]) | set(ext_test["text"])
+        train_df = train_df[~train_df["text"].isin(held)].drop_duplicates("text")
+        # oversample the domain data (after dedup so public duplicates cannot be repeated)
+        extra = [domain] * (args.domain_repeat - 1) + [domain[domain["label"] != "benign"]] * (args.domain_attack_repeat - 1)
+        train_df = pd.concat([train_df] + extra, ignore_index=True)
+        train_df = train_df.sample(frac=1, random_state=args.seed).reset_index(drop=True)
+        tests = {"real": real_test, "malay": malay_test}
+        if len(harm_test):
+            tests["harmful"] = harm_test
+        if len(ext_test):
+            tests["external"] = ext_test
 
-    print(f"\ntrain: {len(train_df)}  {dict(Counter(train_df['label']))}")
-    print(f"test  real: {len(real_test)} {dict(Counter(real_test['label']))}")
-    print(f"test  malay: {len(malay_test)} {dict(Counter(malay_test['label']))}")
-    print(f"test  public harmful: {len(harm_test)}   external (deepset/xtram test): {len(ext_test)}")
+    print(f"\ntrain: {len(train_df)}  {dict(Counter(train_df['label']))}  by lang {dict(Counter(train_df['lang'])) if 'lang' in train_df else ''}")
+    for name, df in tests.items():
+        print(f"test  {name:18} {len(df):5d} {dict(Counter(df['label']))}")
 
     from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
     from datasets import Dataset
@@ -250,7 +284,7 @@ def main():
             ds = Dataset.from_pandas(df.assign(labels=df["label"].map(LABEL2ID))[["text", "labels"]])
             return ds.map(tok, batched=True, remove_columns=["text"])
         train_ds = to_ds(train_df)
-        eval_ds = to_ds(pd.concat([real_test, malay_test, harm_test], ignore_index=True))
+        eval_ds = to_ds(pd.concat([tests[k] for k in tests if k != "external"], ignore_index=True))
 
         def compute_metrics(p):
             preds = p.predictions.argmax(-1); y = p.label_ids
@@ -293,18 +327,14 @@ def main():
         "labels": LABELS,
         "train_size": int(len(train_df)),
         "train_by_source": dict(Counter(train_df["source"])),
-        "real_test": evaluate(model, tokenizer, real_test, args.max_length, "real user inputs (held-out)"),
-        "malay_test": evaluate(model, tokenizer, malay_test, args.max_length, "malay dataset (held-out)"),
     }
-    if len(harm_test):
-        report["harmful_test"] = evaluate(model, tokenizer, harm_test, args.max_length, "public harmful (held-out)")
-    if len(ext_test):
-        report["external_test"] = evaluate(model, tokenizer, ext_test, args.max_length, "deepset + xTRam1 official test splits")
+    for name, df in tests.items():
+        report[f"{name}_test"] = evaluate(model, tokenizer, df, args.max_length, f"{name} (held-out)")
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "eval_report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
     # held-out sets as CSV so they can be uploaded to the benchmark page (never seen in training)
-    real_test[["text", "label"]].to_csv(out_dir / "holdout_real.csv", index=False)
-    malay_test[["text", "label"]].to_csv(out_dir / "holdout_malay.csv", index=False)
+    for name, df in tests.items():
+        df[["text", "label"]].to_csv(out_dir / f"holdout_{name}.csv", index=False)
     print(f"\nreport -> {out_dir / 'eval_report.json'}")
 
 

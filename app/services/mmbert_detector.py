@@ -140,7 +140,7 @@ class MafGuardDetector(MmBertInjectionDetector):
     Loaded from a local directory (MAF_GUARD_MODEL_PATH), so it is optional at runtime.
     """
 
-    DEFAULT_PATH = "yutang718/evyd-defender-v3"  # private Hub repo; override with MAF_GUARD_MODEL_PATH
+    DEFAULT_PATH = "yutang718/evyd-defender"  # private Hub repo (version-less; tags v3/v4/...); override with MAF_GUARD_MODEL_PATH
 
     def __init__(self):
         import os

@@ -15,7 +15,7 @@ services:
       - TRANSFORMERS_VERBOSITY=error
       - PYTHONWARNINGS=ignore::UserWarning
       - HF_HOME=/app/model_cache
-      - MAF_GUARD_MODEL_PATH=${MAF_GUARD_MODEL_PATH:-yutang718/evyd-defender-v3}   # private Hub repo (needs HUGGINGFACE_TOKEN); or a mounted local dir
+      - MAF_GUARD_MODEL_PATH=${MAF_GUARD_MODEL_PATH:-yutang718/evyd-defender}   # private Hub repo (needs HUGGINGFACE_TOKEN); or a mounted local dir
     volumes:
       - model_cache:/app/model_cache
       - ./models:/app/trained_models:ro   # optional: MAF_GUARD_MODEL_PATH=/app/trained_models/<dir> for a local checkpoint

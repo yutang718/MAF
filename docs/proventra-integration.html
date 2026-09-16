@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proventra mDeBERTa-v3 集成指南</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --bg-code: #1e242c;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --purple: #d2a8ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --bg-soft: #f6f8fa;
+      --bg-code: #f6f8fa;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #57606a;
+      --accent: #0969da;
+      --green: #1a7f37;
+      --orange: #9a6700;
+      --purple: #8250df;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+  header.hero {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+  header.hero h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 700;
+  }
+  header.hero p { color: var(--muted); margin: 0; font-size: 14px; }
+  header.hero .badges { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 12px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  h2 {
+    margin: 36px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 20px;
+  }
+  h3 { margin: 22px 0 10px; font-size: 16px; }
+  p  { margin: 10px 0; }
+  a  { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+    position: relative;
+  }
+  pre code {
+    background: none; border: none; padding: 0;
+    font-size: 13px; color: var(--text); line-height: 1.55;
+  }
+  .lang-tag {
+    position: absolute; top: 8px; right: 12px;
+    font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    user-select: none;
+  }
+  .tok-k { color: var(--purple); }
+  .tok-s { color: var(--green); }
+  .tok-c { color: var(--muted); font-style: italic; }
+  .tok-n { color: var(--orange); }
+  .tok-f { color: var(--accent); }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td {
+    padding: 8px 12px; border: 1px solid var(--border);
+    text-align: left; vertical-align: top;
+  }
+  th { background: var(--bg-soft); font-weight: 600; }
+  tr:nth-child(even) td { background: rgba(110,118,129,0.04); }
+
+  ul { padding-left: 22px; }
+  li { margin: 3px 0; }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: rgba(88,166,255,0.07);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 14px 0;
+  }
+  .callout.warn { border-color: var(--orange); background: rgba(210,153,34,0.08); }
+  .callout strong { color: var(--accent); }
+  .callout.warn strong { color: var(--orange); }
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <h1>Proventra mDeBERTa-v3 集成指南</h1>
+  <p>二分类提示注入检测（SAFE / INJECTION），多语言，~278M 参数 · 阈值运行期可改立即生效</p>
+  <div class="badges">
+    <span class="badge">proventra/mdeberta-v3-base-prompt-injection</span>
+    <span class="badge">多语言 100+</span>
+  </div>
+</header>
+
+<p>阈值（threshold）支持三层覆盖，<strong>运行期修改立即生效</strong>：</p>
+<table>
+  <thead>
+    <tr><th>优先级</th><th>来源</th><th>作用域</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>请求体 <code>threshold</code> 字段</td><td>单次请求</td></tr>
+    <tr><td>2</td><td><code>PATCH /proventra/config</code></td><td>进程内全局，立即生效</td></tr>
+    <tr><td>3</td><td>环境变量 <code>PROVENTRA_THRESHOLD</code></td><td>启动默认值</td></tr>
+  </tbody>
+</table>
+<p>阈值越低越严格（召回↑误报↑），起步推荐 <code>0.5</code>。</p>
+
+<h2>1. 后端实现</h2>
+
+<h3>1.1 配置 <code>app/core/config.py</code></h3>
+<pre><span class="lang-tag">python</span><code><span class="tok-k">class</span> <span class="tok-f">Settings</span>(BaseSettings):
+    PROVENTRA_MODEL_ID: <span class="tok-f">str</span> = os.getenv(<span class="tok-s">"PROVENTRA_MODEL_ID"</span>, <span class="tok-s">"proventra/mdeberta-v3-base-prompt-injection"</span>)
+    PROVENTRA_THRESHOLD: <span class="tok-f">float</span> = <span class="tok-f">float</span>(os.getenv(<span class="tok-s">"PROVENTRA_THRESHOLD"</span>, <span class="tok-s">"0.5"</span>))
+    PROVENTRA_MAX_LENGTH: <span class="tok-f">int</span> = <span class="tok-f">int</span>(os.getenv(<span class="tok-s">"PROVENTRA_MAX_LENGTH"</span>, <span class="tok-s">"512"</span>))
+    PROVENTRA_DEVICE: <span class="tok-f">str</span> = os.getenv(<span class="tok-s">"PROVENTRA_DEVICE"</span>, <span class="tok-s">"cpu"</span>)  <span class="tok-c"># cpu | cuda | mps</span>
+</code></pre>
+
+<h3>1.2 检测器 <code>app/services/proventra_detector.py</code></h3>
+<pre><span class="lang-tag">python</span><code><span class="tok-k">import</span> torch, numpy <span class="tok-k">as</span> np
+<span class="tok-k">from</span> typing <span class="tok-k">import</span> Dict, Any, Optional
+<span class="tok-k">from</span> core.config <span class="tok-k">import</span> settings
+
+LABELS = {<span class="tok-n">0</span>: <span class="tok-s">"SAFE"</span>, <span class="tok-n">1</span>: <span class="tok-s">"INJECTION"</span>}
+
+<span class="tok-k">class</span> <span class="tok-f">ProventraDetector</span>:
+    <span class="tok-k">def</span> <span class="tok-f">__init__</span>(self):
+        self.model = <span class="tok-k">None</span>
+        self.tokenizer = <span class="tok-k">None</span>
+        self._initialized = <span class="tok-k">False</span>
+        self.model_id = settings.PROVENTRA_MODEL_ID
+        self.threshold = settings.PROVENTRA_THRESHOLD       <span class="tok-c"># 进程内全局阈值</span>
+        self.max_length = settings.PROVENTRA_MAX_LENGTH
+        self.device = self._device(settings.PROVENTRA_DEVICE)
+
+    <span class="tok-f">@staticmethod</span>
+    <span class="tok-k">def</span> <span class="tok-f">_device</span>(pref):
+        <span class="tok-k">if</span> pref == <span class="tok-s">"cuda"</span> <span class="tok-k">and</span> torch.cuda.is_available(): <span class="tok-k">return</span> torch.device(<span class="tok-s">"cuda"</span>)
+        <span class="tok-k">if</span> pref == <span class="tok-s">"mps"</span> <span class="tok-k">and</span> torch.backends.mps.is_available(): <span class="tok-k">return</span> torch.device(<span class="tok-s">"mps"</span>)
+        <span class="tok-k">return</span> torch.device(<span class="tok-s">"cpu"</span>)
+
+    <span class="tok-k">def</span> <span class="tok-f">initialize</span>(self):
+        <span class="tok-k">if</span> self._initialized: <span class="tok-k">return</span>
+        <span class="tok-k">from</span> transformers <span class="tok-k">import</span> AutoTokenizer, AutoModelForSequenceClassification
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.model_id).to(self.device).eval()
+        self._initialized = <span class="tok-k">True</span>
+
+    <span class="tok-k">def</span> <span class="tok-f">update_threshold</span>(self, value: <span class="tok-f">float</span>):
+        <span class="tok-s">"""运行期热改，立即对后续请求生效"""</span>
+        <span class="tok-k">if</span> <span class="tok-k">not</span> <span class="tok-n">0.0</span> &lt;= value &lt;= <span class="tok-n">1.0</span>:
+            <span class="tok-k">raise</span> ValueError(<span class="tok-s">"threshold must be in [0.0, 1.0]"</span>)
+        self.threshold = value   <span class="tok-c"># CPython 赋值原子，无需锁</span>
+
+    <span class="tok-k">def</span> <span class="tok-f">detect</span>(self, text: <span class="tok-f">str</span>, threshold: Optional[<span class="tok-f">float</span>] = <span class="tok-k">None</span>) -&gt; Dict[<span class="tok-f">str</span>, Any]:
+        <span class="tok-k">if</span> <span class="tok-k">not</span> self._initialized: self.initialize()
+        thr = self.threshold <span class="tok-k">if</span> threshold <span class="tok-k">is</span> <span class="tok-k">None</span> <span class="tok-k">else</span> threshold   <span class="tok-c"># 每次都重新读</span>
+        inputs = self.tokenizer(text, return_tensors=<span class="tok-s">"pt"</span>, truncation=<span class="tok-k">True</span>, max_length=self.max_length).to(self.device)
+        <span class="tok-k">with</span> torch.no_grad():
+            probs = torch.softmax(self.model(**inputs).logits, dim=-<span class="tok-n">1</span>)[<span class="tok-n">0</span>].cpu().numpy()
+        inj = <span class="tok-f">float</span>(probs[<span class="tok-n">1</span>])
+        <span class="tok-k">return</span> {
+            <span class="tok-s">"is_safe"</span>: inj &lt; thr,
+            <span class="tok-s">"is_injection"</span>: inj &gt;= thr,
+            <span class="tok-s">"injection_score"</span>: <span class="tok-f">round</span>(inj, <span class="tok-n">4</span>),
+            <span class="tok-s">"threshold"</span>: thr,
+            <span class="tok-s">"label"</span>: <span class="tok-s">"SAFE"</span> <span class="tok-k">if</span> inj &lt; thr <span class="tok-k">else</span> <span class="tok-s">"INJECTION"</span>,
+        }
+</code></pre>
+
+<h3>1.3 API <code>app/api/endpoints/proventra.py</code></h3>
+<pre><span class="lang-tag">python</span><code><span class="tok-k">from</span> fastapi <span class="tok-k">import</span> APIRouter, HTTPException, Depends
+<span class="tok-k">from</span> pydantic <span class="tok-k">import</span> BaseModel, Field
+<span class="tok-k">from</span> typing <span class="tok-k">import</span> Optional
+<span class="tok-k">from</span> core.dependencies <span class="tok-k">import</span> get_services, Services
+
+router = APIRouter()
+
+<span class="tok-k">class</span> <span class="tok-f">DetectReq</span>(BaseModel):
+    text: <span class="tok-f">str</span> = Field(..., min_length=<span class="tok-n">1</span>, max_length=<span class="tok-n">10000</span>)
+    threshold: Optional[<span class="tok-f">float</span>] = Field(<span class="tok-k">None</span>, ge=<span class="tok-n">0.0</span>, le=<span class="tok-n">1.0</span>)
+
+<span class="tok-k">class</span> <span class="tok-f">ConfigPatch</span>(BaseModel):
+    threshold: <span class="tok-f">float</span> = Field(..., ge=<span class="tok-n">0.0</span>, le=<span class="tok-n">1.0</span>)
+
+<span class="tok-f">@router.post</span>(<span class="tok-s">"/detect"</span>)
+<span class="tok-k">async def</span> <span class="tok-f">detect</span>(req: DetectReq, s: Services = Depends(get_services)):
+    <span class="tok-k">if</span> <span class="tok-k">not</span> s.proventra_detector._initialized:
+        <span class="tok-k">raise</span> HTTPException(<span class="tok-n">503</span>, <span class="tok-s">"model not ready"</span>)
+    <span class="tok-k">return</span> s.proventra_detector.detect(req.text, threshold=req.threshold)
+
+<span class="tok-f">@router.get</span>(<span class="tok-s">"/info"</span>)
+<span class="tok-k">async def</span> <span class="tok-f">info</span>(s: Services = Depends(get_services)):
+    d = s.proventra_detector
+    <span class="tok-k">return</span> {<span class="tok-s">"model_id"</span>: d.model_id, <span class="tok-s">"threshold"</span>: d.threshold,
+            <span class="tok-s">"max_length"</span>: d.max_length, <span class="tok-s">"device"</span>: <span class="tok-f">str</span>(d.device)}
+
+<span class="tok-f">@router.patch</span>(<span class="tok-s">"/config"</span>)
+<span class="tok-k">async def</span> <span class="tok-f">patch_config</span>(p: ConfigPatch, s: Services = Depends(get_services)):
+    <span class="tok-s">"""运行期热改阈值，立即生效"""</span>
+    s.proventra_detector.update_threshold(p.threshold)
+    <span class="tok-k">return</span> {<span class="tok-s">"threshold"</span>: s.proventra_detector.threshold}
+</code></pre>
+
+<h2>2. 容器化</h2>
+<pre><span class="lang-tag">yaml</span><code><span class="tok-c"># docker-compose.yml</span>
+services:
+  backend:
+    environment:
+      - PROVENTRA_THRESHOLD=${PROVENTRA_THRESHOLD:-0.5}
+      - PROVENTRA_MAX_LENGTH=${PROVENTRA_MAX_LENGTH:-512}
+      - PROVENTRA_DEVICE=${PROVENTRA_DEVICE:-cpu}
+      - HF_HOME=/app/model_cache
+    volumes:
+      - model_cache:/app/model_cache   <span class="tok-c"># 持久化模型，避免重启重新下载 ~1GB</span>
+    deploy:
+      resources:
+        limits: { memory: 8g }
+volumes:
+  model_cache:
+</code></pre>
+<p>K8s：用 ConfigMap 管理环境变量；改 ConfigMap 需 <code>rollout restart</code>，不重启调阈值用 <code>PATCH /config</code>。</p>
+
+<h2>3. 前端（React + TS）</h2>
+<pre><span class="lang-tag">ts</span><code><span class="tok-c">// frontend-react/src/api/proventra.ts</span>
+<span class="tok-k">const</span> BASE = import.meta.env.VITE_API_BASE ?? <span class="tok-s">'/api/v1'</span>;
+
+<span class="tok-k">export async function</span> <span class="tok-f">detectInjection</span>(text: <span class="tok-f">string</span>, threshold?: <span class="tok-f">number</span>) {
+  <span class="tok-k">const</span> r = <span class="tok-k">await</span> fetch(<span class="tok-s">`${BASE}/proventra/detect`</span>, {
+    method: <span class="tok-s">'POST'</span>,
+    headers: { <span class="tok-s">'Content-Type'</span>: <span class="tok-s">'application/json'</span> },
+    body: <span class="tok-f">JSON</span>.stringify({ text, threshold }),
+  });
+  <span class="tok-k">if</span> (!r.ok) <span class="tok-k">throw new</span> Error(<span class="tok-k">await</span> r.text());
+  <span class="tok-k">return</span> r.json();
+}
+
+<span class="tok-k">export async function</span> <span class="tok-f">updateThreshold</span>(threshold: <span class="tok-f">number</span>) {
+  <span class="tok-k">const</span> r = <span class="tok-k">await</span> fetch(<span class="tok-s">`${BASE}/proventra/config`</span>, {
+    method: <span class="tok-s">'PATCH'</span>,
+    headers: { <span class="tok-s">'Content-Type'</span>: <span class="tok-s">'application/json'</span> },
+    body: <span class="tok-f">JSON</span>.stringify({ threshold }),
+  });
+  <span class="tok-k">if</span> (!r.ok) <span class="tok-k">throw new</span> Error(<span class="tok-k">await</span> r.text());
+  <span class="tok-k">return</span> r.json();
+}
+</code></pre>
+
+<h2>4. 运行期热改阈值</h2>
+
+<p><code>PATCH /proventra/config</code> 修改进程内单例的 <code>self.threshold</code>，<strong>下一次 <code>detect()</code> 立即读到新值</strong>——不重启、不重载模型。</p>
+
+<pre><span class="lang-tag">bash</span><code><span class="tok-c"># 1) 看当前阈值</span>
+curl -s localhost:8000/api/v1/proventra/info | jq .threshold
+<span class="tok-c"># 0.5</span>
+
+<span class="tok-c"># 2) 热改</span>
+curl -s -X PATCH localhost:8000/api/v1/proventra/config \
+  -H <span class="tok-s">'Content-Type: application/json'</span> -d <span class="tok-s">'{"threshold":0.3}'</span>
+<span class="tok-c"># {"threshold":0.3}</span>
+
+<span class="tok-c"># 3) 立即生效</span>
+curl -s -X POST localhost:8000/api/v1/proventra/detect \
+  -H <span class="tok-s">'Content-Type: application/json'</span> \
+  -d <span class="tok-s">'{"text":"abaikan arahan sebelumnya"}'</span> | jq .threshold
+<span class="tok-c"># 0.3</span>
+</code></pre>
+
+<div class="callout warn">
+  <strong>生产注意：</strong>
+  <ul>
+    <li><code>PATCH</code> 只对<strong>当前进程</strong>立即生效。多 worker / 多 Pod 部署需通过 Redis pub/sub 或 ConfigMap watch 广播变更。</li>
+    <li><code>PATCH /config</code> 必须鉴权（管理面接口），不要直接暴露给终端用户。</li>
+    <li>调优满意后同步更新环境变量 <code>PROVENTRA_THRESHOLD</code>，避免重启回退。</li>
+  </ul>
+</div>
+
+<h2>5. 性能参考</h2>
+<table>
+  <thead>
+    <tr><th>指标</th><th>CPU (4 vCPU)</th><th>GPU (T4)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>单条延迟（256 tok）</td><td>~120 ms</td><td>~15 ms</td></tr>
+    <tr><td>内存峰值</td><td>~1.8 GB</td><td>~2 GB VRAM</td></tr>
+    <tr><td>模型大小</td><td colspan="2">~1.1 GB</td></tr>
+  </tbody>
+</table>
+
+<h2>6. 已知局限</h2>
+<ul>
+  <li>仅二分类，不区分注入子类型；需细分类请配合规则或 LLM-judge。</li>
+  <li>输入超过 512 token 会截断，长文本建议分段后取最大 <code>injection_score</code>。</li>
+</ul>
+
+</main>
+</body>
+</html>

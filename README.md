@@ -112,7 +112,7 @@ The React frontend and FastAPI backend are packaged into one image. FastAPI serv
 built frontend from `/app/static` with SPA fallback, and the API under `/api/v1`.
 
 `.env` needs `HUGGINGFACE_TOKEN` with read access to the private model repo
-`yutang718/evyd-defender-v3` (EVYD Defender); the other guard models are public. Model
+`yutang718/evyd-defender` (EVYD Defender; version-less repo, current weights tagged `v4`); the other guard models are public. Model
 weights are cached in the `model_cache` volume after the first start. To run a locally
 trained checkpoint instead, set `MAF_GUARD_MODEL_PATH=/app/trained_models/<dir>`
 (the `./models` directory is mounted there).

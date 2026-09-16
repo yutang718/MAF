@@ -98,18 +98,21 @@ recall 0.88, real / public / external within ±0.3% FPR of v3.
 
 ## 3. Publish
 
-The model lives in the private Hub repo `yutang718/evyd-defender-v3`. The repo id is kept
+The model lives in the private Hub repo `yutang718/evyd-defender` (version-less; each release
+keeps the same repo id and adds a git tag, e.g. `v4` for the current weights). The repo id is kept
 stable (it is the `MAF_GUARD_MODEL_PATH` default) while its weights are updated in place, so
 the current V4 checkpoint is published there too. To push a new version: log in once
 (`venv/bin/hf auth login`), then upload the latest local checkpoint directory:
 
 ```bash
-venv/bin/hf upload yutang718/evyd-defender-v3 models/evyd-defender-v4 . \
+venv/bin/hf upload yutang718/evyd-defender models/evyd-defender-v4 . \
     --include "config.json" "model.safetensors" "tokenizer*.json" "special_tokens_map.json" "eval_report.json"
+# then tag the release so the version is recoverable (repo id stays version-less):
+venv/bin/python -c "from huggingface_hub import HfApi; HfApi().create_tag('yutang718/evyd-defender', tag='v4')"
 ```
 
 `MAF_GUARD_MODEL_PATH` accepts either the local directory or the Hub id
-(`yutang718/evyd-defender-v3`, needs `HF_TOKEN` for a private repo).
+(`yutang718/evyd-defender`, needs `HF_TOKEN` for a private repo).
 
 ## 4. Use the model
 

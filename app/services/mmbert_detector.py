@@ -140,7 +140,7 @@ class MafGuardDetector(MmBertInjectionDetector):
     Loaded from a local directory (MAF_GUARD_MODEL_PATH), so it is optional at runtime.
     """
 
-    DEFAULT_PATH = "models/evyd-defender-v3"
+    DEFAULT_PATH = "yutang718/evyd-defender-v3"  # private Hub repo; override with MAF_GUARD_MODEL_PATH
 
     def __init__(self):
         import os
@@ -150,7 +150,8 @@ class MafGuardDetector(MmBertInjectionDetector):
 
     def initialize(self) -> None:
         import os
-        if not os.path.isfile(os.path.join(self.MODEL_ID, "config.json")):
+        # local directory must contain a checkpoint; anything else is treated as a Hub repo id
+        if os.path.isdir(self.MODEL_ID) and not os.path.isfile(os.path.join(self.MODEL_ID, "config.json")):
             raise FileNotFoundError(f"no trained model at {self.MODEL_ID} (run training/train.py)")
         super().initialize()
         self.classes = [self.model.config.id2label[i] for i in range(self.model.config.num_labels)]

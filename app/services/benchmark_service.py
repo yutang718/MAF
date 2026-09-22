@@ -31,6 +31,46 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "category": "Malay (Translated)",
         "local": True,
     },
+    "maf/malay-injection-brunei-v1": {
+        "id": "maf/malay-injection-brunei-v1",
+        "name": "Malay Prompt Injection (Brunei, 10k)",
+        "description": "9,904 colloquial Brunei-Malay injection prompts (ani / kamurang / inda register), covering instruction override, role-play, authority pretexts, encoding tricks and multi-turn framing. Attack-only — measures recall, not false positives. Paired 1:1 with an English source set.",
+        "samples": 9904,
+        "languages": ["MS"],
+        "labels": ["injection (all samples)"],
+        "license": "Internal",
+        "citation": "MAF internal — Brunei-Malay injection set (2026)",
+        "downloads_monthly": 0,
+        "category": "Malay (Colloquial)",
+        "local": True,
+    },
+    "maf/consult-benign-malay-v1": {
+        "id": "maf/consult-benign-malay-v1",
+        "name": "Consult Benign Malay (human-verified)",
+        "description": "3,311 ordinary patient-consult requests in natural Brunei Malay, translated from the English consult set and verified by a native speaker. Benign-only — measures false positives, not recall. 2,647 of these items were in v4 training as stiffer NLLB machine translations; use the holdout variant for an uncontaminated FPR.",
+        "samples": 3311,
+        "languages": ["MS"],
+        "labels": ["benign (all samples)"],
+        "license": "Internal",
+        "citation": "MAF internal — consult benign set, Malay translation verified by Danial (2026)",
+        "downloads_monthly": 0,
+        "category": "Malay (Benign)",
+        "local": True,
+    },
+    "maf/consult-benign-malay-holdout": {
+        "id": "maf/consult-benign-malay-holdout",
+        "name": "Consult Benign Malay (v4 holdout)",
+        "description": "The 664 items of the human-verified Malay consult set whose English/Chinese counterparts were held out of v4 training. The cleanest false-positive number for this traffic — no version of these questions was trained on.",
+        "samples": 664,
+        "languages": ["MS"],
+        "labels": ["benign (all samples)"],
+        "license": "Internal",
+        "citation": "MAF internal — consult benign set (v4 holdout), Malay verified by Danial (2026)",
+        "downloads_monthly": 0,
+        "category": "Malay (Benign)",
+        "local": True,
+        "split_filter": "holdout",
+    },
     "deepset/prompt-injections": {
         "id": "deepset/prompt-injections",
         "name": "deepset Prompt Injections",
@@ -260,6 +300,33 @@ class BenchmarkService:
             samples = [{"text": s["text"], "expected": s["label"]} for s in data]
             logger.info(f"Loaded {len(samples)} local Malay samples")
             return samples
+        if dataset_id == "maf/malay-injection-brunei-v1":
+            import csv
+            import random
+            from pathlib import Path
+            path = Path(__file__).resolve().parent.parent / "data" / "malay_injection_brunei.csv"
+            with path.open(encoding="utf-8") as f:
+                data = [{"text": r["text"], "expected": r["label"]} for r in csv.DictReader(f) if r["text"].strip()]
+            random.Random(42).shuffle(data)
+            data = data[:max_samples]
+            logger.info(f"Loaded {len(data)} local Brunei-Malay injection samples from {path.name}")
+            return data
+        if dataset_id in ("maf/consult-benign-malay-v1", "maf/consult-benign-malay-holdout"):
+            import csv
+            import random
+            from pathlib import Path
+            split_filter = DATASET_REGISTRY[dataset_id].get("split_filter")
+            path = Path(__file__).resolve().parent.parent / "data" / "consult_benign_malay.csv"
+            with path.open(encoding="utf-8") as f:
+                rows = [r for r in csv.DictReader(f) if r["text"].strip()]
+            if split_filter:
+                rows = [r for r in rows if r.get("split") == split_filter]
+            data = [{"text": r["text"], "expected": r["label"]} for r in rows]
+            random.Random(42).shuffle(data)
+            data = data[:max_samples]
+            logger.info(f"Loaded {len(data)} local consult-benign Malay samples from {path.name}"
+                        f"{' (split=' + split_filter + ')' if split_filter else ''}")
+            return data
         raise ValueError(f"Unknown local dataset: {dataset_id}")
 
     async def start_benchmark(self, dataset_id: str, models: List[str], max_samples: int = 200, thresholds: Optional[Dict[str, float]] = None) -> str:

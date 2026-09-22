@@ -26,7 +26,7 @@ VALID_MODELS = ["proventra", "modernguard", "wolfdefender", "mafguard"]
 class BenchmarkRequest(BaseModel):
     dataset_id: str = Field(..., description="HuggingFace dataset ID")
     models: List[str] = Field(..., description="Model keys to benchmark: proventra, modernguard, wolfdefender, mafguard")
-    max_samples: int = Field(default=200, ge=10, le=1000)
+    max_samples: int = Field(default=200, ge=10, le=10000)
     thresholds: ModelThresholds = Field(default_factory=ModelThresholds)
 
 

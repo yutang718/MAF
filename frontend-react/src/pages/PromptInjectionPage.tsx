@@ -211,7 +211,7 @@ function AnalysisTab({
 
           {/* EVYD Defender Config (project fine-tuned) */}
           <ModelConfigCard
-            name="EVYD Defender V3"
+            name="EVYD Defender V4"
             tag="Fine-tuned · 3-Class"
             config={mafConfig}
             onChange={setMafConfig}
@@ -280,7 +280,7 @@ function AnalysisTab({
 
           {mafConfig.enabled && mafResult && (
             <ModelResultCard
-              title="EVYD Defender V3"
+              title="EVYD Defender V4"
               safe={mafResult.is_safe}
               label={mafResult.label}
               score={mafResult.threat_score}
@@ -405,16 +405,16 @@ function AvailableModelsTab() {
           name="Proventra mDeBERTa v3"
           modelId="proventra/mdeberta-v3-base-prompt-injection"
           specs={[
-            [t('prompt.architecture'), 'mDeBERTa-v3-base (~300M params)'],
-            [t('prompt.runtime'), 'PyTorch (Safetensors)'],
-            [t('prompt.modelLanguages'), '100+ (multilingual backbone)'],
-            [t('prompt.classes'), '2 — Safe / Injection'],
-            [t('prompt.size'), '~300 MB'],
-            [t('prompt.license'), 'MIT'],
+            [t('prompt.architecture'), t('prompt.m.proventra.arch')],
+            [t('prompt.runtime'), t('prompt.m.proventra.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.proventra.langs')],
+            [t('prompt.classes'), t('prompt.m.proventra.classes')],
+            [t('prompt.size'), t('prompt.m.proventra.size')],
+            [t('prompt.license'), t('prompt.m.proventra.license')],
             [t('prompt.maxTokens'), '512'],
           ]}
-          strengths={['Weighted loss (2x on injection) — fewer missed attacks', 'Trained on nested injections in realistic content', 'MIT license — no gating or restrictions', 'Multilingual via mDeBERTa backbone']}
-          limitations={['No published F1/recall benchmarks', 'Binary only — no jailbreak differentiation', 'Relatively new with smaller community']}
+          strengths={['s1', 's2', 's3', 's4'].map(k => t(`prompt.m.proventra.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.proventra.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -423,17 +423,17 @@ function AvailableModelsTab() {
           name="ModernGuard-1"
           modelId="guardion/ModernGuard-1"
           specs={[
-            [t('prompt.architecture'), 'ModernBERT / mmBERT-base (~307M params)'],
-            [t('prompt.runtime'), 'PyTorch (Safetensors)'],
-            [t('prompt.modelLanguages'), '1,080 (fine-tuned on 11 incl. ZH, AR, JA)'],
-            [t('prompt.classes'), '2 — Safe / Injection'],
-            [t('prompt.size'), '~1.2 GB'],
-            [t('prompt.f1Score'), '0.963 (vendor leaderboard, Jan 2026)'],
-            [t('prompt.license'), 'Apache-2.0'],
-            [t('prompt.maxTokens'), '8192 (2048 used)'],
+            [t('prompt.architecture'), t('prompt.m.modernguard.arch')],
+            [t('prompt.runtime'), t('prompt.m.modernguard.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.modernguard.langs')],
+            [t('prompt.classes'), t('prompt.m.modernguard.classes')],
+            [t('prompt.size'), t('prompt.m.modernguard.size')],
+            [t('prompt.f1Score'), t('prompt.m.modernguard.f1')],
+            [t('prompt.license'), t('prompt.m.modernguard.license')],
+            [t('prompt.maxTokens'), t('prompt.m.modernguard.maxTokens')],
           ]}
-          strengths={['Long context — scans whole RAG documents without chunking', 'Covers direct jailbreaks and indirect (data) injections', 'Energy-based loss — low FPR on out-of-distribution text', 'Gemma-2 tokenizer resists unicode / whitespace obfuscation']}
-          limitations={['Vendor-reported benchmarks only (Jan 2026)', 'Largest model in the set — slower on CPU', 'No explicit Malay fine-tuning data']}
+          strengths={['s1', 's2', 's3', 's4'].map(k => t(`prompt.m.modernguard.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.modernguard.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -442,35 +442,35 @@ function AvailableModelsTab() {
           name="Wolf Defender v2"
           modelId="patronus-studio/wolf-defender-prompt-injection"
           specs={[
-            [t('prompt.architecture'), 'ModernBERT / mmBERT-base'],
-            [t('prompt.runtime'), 'PyTorch (ONNX FP16/INT8 also available)'],
-            [t('prompt.modelLanguages'), 'Multilingual (mmBERT backbone; EN/DE primary)'],
-            [t('prompt.classes'), '2 — Benign / Injection'],
-            [t('prompt.size'), '~1.2 GB'],
-            [t('prompt.f1Score'), '0.951 Qualifire / 0.978 Jayavibhav'],
-            [t('prompt.license'), 'Apache-2.0'],
+            [t('prompt.architecture'), t('prompt.m.wolf.arch')],
+            [t('prompt.runtime'), t('prompt.m.wolf.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.wolf.langs')],
+            [t('prompt.classes'), t('prompt.m.wolf.classes')],
+            [t('prompt.size'), t('prompt.m.wolf.size')],
+            [t('prompt.f1Score'), t('prompt.m.wolf.f1')],
+            [t('prompt.license'), t('prompt.m.wolf.license')],
             [t('prompt.maxTokens'), '2048'],
           ]}
-          strengths={['Tuned for low false positives — 96% specificity on hard benign text', 'Published cross-model comparison incl. Sentinel v1/v2', 'Ships FP16 / INT8 ONNX variants for on-device use', '2k context — handles long documents']}
-          limitations={['Trades some recall for precision (clean F1 98.4%)', 'Tokenizer config targets transformers v5 (loaded via fallback)', 'Training data mostly EN / DE']}
+          strengths={['s1', 's2', 's3', 's4'].map(k => t(`prompt.m.wolf.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.wolf.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
 
         <ModelInfoCard
-          name="EVYD Defender V3"
-          modelId="models/evyd-defender-v3 (fine-tuned from Wolf Defender v2)"
+          name="EVYD Defender V4"
+          modelId={t('prompt.m.evyd.modelId')}
           specs={[
-            [t('prompt.architecture'), 'ModernBERT / mmBERT-base, embeddings frozen'],
-            [t('prompt.runtime'), 'PyTorch (Safetensors, local)'],
-            [t('prompt.modelLanguages'), 'EN / ZH / MS (168k training rows, 30k Malay)'],
-            [t('prompt.classes'), '3 — Benign / Injection / Harmful request'],
-            [t('prompt.size'), '~1.2 GB'],
-            [t('prompt.license'), 'Internal (base: Apache-2.0)'],
-            [t('prompt.maxTokens'), '128 (training) / 2048'],
+            [t('prompt.architecture'), t('prompt.m.evyd.arch')],
+            [t('prompt.runtime'), t('prompt.m.evyd.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.evyd.langs')],
+            [t('prompt.classes'), t('prompt.m.evyd.classes')],
+            [t('prompt.size'), t('prompt.m.evyd.size')],
+            [t('prompt.license'), t('prompt.m.evyd.license')],
+            [t('prompt.maxTokens'), t('prompt.m.evyd.maxTokens')],
           ]}
-          strengths={['168k samples: EN + ZH public injection / jailbreak / harmful sets, 30k machine-translated Malay, real app traffic', 'Two-stage training: broad corpus, then domain adaptation on real inputs', 'Malay: 98.9% injection recall at 0.7% FPR on translated hold-out', 'Held-out FPR / recall per split in models/*/eval_report.json']}
-          limitations={['Malay training data is machine-translated (NLLB-1.3B, similarity-filtered)', 'Must be retrained as traffic changes (training/train.py)', 'Requires the local checkpoint to be mounted (MAF_GUARD_MODEL_PATH)']}
+          strengths={['s1', 's2', 's3', 's4', 's5'].map(k => t(`prompt.m.evyd.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.evyd.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -767,7 +767,7 @@ function BenchmarkTab() {
     { key: 'proventra', name: 'Proventra mDeBERTa v3', defaultThreshold: 0.5 },
     { key: 'modernguard', name: 'ModernGuard-1', defaultThreshold: 0.5 },
     { key: 'wolfdefender', name: 'Wolf Defender v2', defaultThreshold: 0.5 },
-    { key: 'mafguard', name: 'EVYD Defender V3', defaultThreshold: 0.5 },
+    { key: 'mafguard', name: 'EVYD Defender V4', defaultThreshold: 0.5 },
   ]
 
   // Persist state to localStorage
@@ -1076,7 +1076,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
     proventra: 'Proventra mDeBERTa v3',
     modernguard: 'ModernGuard-1',
     wolfdefender: 'Wolf Defender v2',
-    mafguard: 'EVYD Defender V3',
+    mafguard: 'EVYD Defender V4',
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)

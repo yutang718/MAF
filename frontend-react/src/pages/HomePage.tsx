@@ -105,28 +105,28 @@ function BenchmarkSection({ t }: { t: (key: string) => string }) {
       </div>
       <div className="grid grid-cols-4 gap-5">
         <BenchmarkCard
-          name="EVYD Defender V3"
+          name="EVYD Defender V4"
           metrics={[
-            { label: t('home.benchmark.f1'), value: 0.828, color: 'bg-cyber-accent' },
-            { label: t('home.benchmark.recall'), value: 0.857, color: 'bg-cyber-accent' },
-            { label: t('home.benchmark.precision'), value: 0.800, color: 'bg-cyber-accent' },
+            { label: t('home.benchmark.f1'), value: 0.882, color: 'bg-cyber-accent' },
+            { label: t('home.benchmark.recall'), value: 1.000, color: 'bg-cyber-accent' },
+            { label: t('home.benchmark.precision'), value: 0.789, color: 'bg-cyber-accent' },
           ]}
-          meta={`mmBERT-base · ${t('home.benchmark.fineTuned')} · FPR 0.4%`}
+          meta={`mmBERT-base · ${t('home.benchmark.fineTuned')} · FPR 0.6%`}
         />
         <BenchmarkCard
           name="Proventra mDeBERTa v3"
           metrics={[
             { label: t('home.benchmark.f1'), value: 0.571, color: 'bg-cyber-green' },
-            { label: t('home.benchmark.recall'), value: 0.714, color: 'bg-cyber-green' },
-            { label: t('home.benchmark.precision'), value: 0.476, color: 'bg-cyber-green' },
+            { label: t('home.benchmark.recall'), value: 0.667, color: 'bg-cyber-green' },
+            { label: t('home.benchmark.precision'), value: 0.500, color: 'bg-cyber-green' },
           ]}
-          meta="mDeBERTa-v3-base · 100+ Languages · FPR 1.6%"
+          meta="mDeBERTa-v3-base · 100+ Languages · FPR 1.5%"
         />
         <BenchmarkCard
           name="ModernGuard-1"
           metrics={[
-            { label: t('home.benchmark.f1'), value: 0.480, color: 'bg-cyber-purple' },
-            { label: t('home.benchmark.recall'), value: 0.857, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.f1'), value: 0.471, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.recall'), value: 0.800, color: 'bg-cyber-purple' },
             { label: t('home.benchmark.precision'), value: 0.333, color: 'bg-cyber-purple' },
           ]}
           meta="mmBERT-base · 1080 Languages · 8k ctx · FPR 3.5%"
@@ -134,11 +134,11 @@ function BenchmarkSection({ t }: { t: (key: string) => string }) {
         <BenchmarkCard
           name="Wolf Defender v2"
           metrics={[
-            { label: t('home.benchmark.f1'), value: 0.462, color: 'bg-cyber-purple' },
-            { label: t('home.benchmark.recall'), value: 0.643, color: 'bg-cyber-purple' },
-            { label: t('home.benchmark.precision'), value: 0.360, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.f1'), value: 0.474, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.recall'), value: 0.600, color: 'bg-cyber-purple' },
+            { label: t('home.benchmark.precision'), value: 0.391, color: 'bg-cyber-purple' },
           ]}
-          meta="mmBERT-base · Multilingual · FPR 2.3%"
+          meta="mmBERT-base · Multilingual · FPR 2.1%"
         />
       </div>
       <p className="text-xs text-cyber-muted mt-3">{t('home.benchmark.note')}</p>
@@ -159,7 +159,7 @@ function TechStackSection({ t }: { t: (key: string) => string }) {
             <th className="table-header">{t('home.table.size')}</th>
           </tr></thead>
           <tbody>
-            <Row cells={[t('home.pipeline.promptFineTuned'), 'EVYD Defender V3 (mmBERT)', 'PyTorch', '1.2 GB']} />
+            <Row cells={[t('home.pipeline.promptFineTuned'), 'EVYD Defender V4 (mmBERT)', 'PyTorch', '1.2 GB']} />
             <Row cells={[t('home.pipeline.promptMulti'), 'Proventra mDeBERTa v3', 'PyTorch', '300 MB']} />
             <Row cells={[t('home.pipeline.promptMulti'), 'ModernGuard-1 · Wolf Defender v2', 'PyTorch', '1.2 GB ×2']} />
             <Row cells={[t('home.pipeline.pii'), 'Presidio + spaCy', 'CPU', '~200 MB']} />

@@ -687,6 +687,7 @@ interface DatasetInfo {
   languages: string[]; labels: string[]; license: string
   citation: string; downloads_monthly: number; category: string
   name_zh?: string; description_zh?: string; category_zh?: string
+  overlap_v4?: number | null
 }
 
 interface BenchmarkModelMetrics {
@@ -882,6 +883,11 @@ function BenchmarkTab() {
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-cyber-accent">{ds_(ds, 'category')}</span>
                     <span className="text-xs text-cyber-muted">{ds.languages.join('/')}</span>
+                    {(ds.overlap_v4 ?? 0) >= 0.3 && (
+                      <span className="text-xs text-cyber-warning" title={t('prompt.bench.overlapHint')}>
+                        {t('prompt.bench.overlapBadge', { pct: Math.round((ds.overlap_v4 ?? 0) * 100) })}
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -902,6 +908,11 @@ function BenchmarkTab() {
                 <div><span className="text-cyber-muted">{t('prompt.bench.languages')}:</span> <span className="text-cyber-text">{selectedInfo.languages.join(', ')}</span></div>
                 <div><span className="text-cyber-muted">{t('prompt.bench.downloads')}:</span> <span className="text-cyber-text">{selectedInfo.downloads_monthly.toLocaleString()}/mo</span></div>
               </div>
+              {(selectedInfo.overlap_v4 ?? 0) >= 0.3 && (
+                <div className="text-xs text-cyber-warning leading-relaxed">
+                  {t('prompt.bench.overlapWarn', { pct: Math.round((selectedInfo.overlap_v4 ?? 0) * 100) })}
+                </div>
+              )}
               <div className="text-xs text-cyber-muted italic">{selectedInfo.citation}</div>
             </div>
           )}

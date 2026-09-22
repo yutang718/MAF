@@ -686,6 +686,7 @@ interface DatasetInfo {
   id: string; name: string; description: string; samples: number
   languages: string[]; labels: string[]; license: string
   citation: string; downloads_monthly: number; category: string
+  name_zh?: string; description_zh?: string; category_zh?: string
 }
 
 interface BenchmarkModelMetrics {
@@ -751,7 +752,10 @@ function saveBenchState(state: { selectedModels: string[]; maxSamples: number; t
 }
 
 function BenchmarkTab() {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
+  // dataset metadata lives in the backend registry; fall back to English when a zh field is missing
+  const ds_ = (d: DatasetInfo, f: 'name' | 'description' | 'category') =>
+    (lang === 'zh' ? d[`${f}_zh` as const] : undefined) || d[f]
   const saved = useRef(loadBenchState())
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
   const [selectedDataset, setSelectedDataset] = useState<string>('')
@@ -872,11 +876,11 @@ function BenchmarkTab() {
                       : 'border-transparent hover:bg-white/[0.02]'
                   }`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-cyber-text">{ds.name}</span>
+                    <span className="text-sm font-medium text-cyber-text">{ds_(ds, 'name')}</span>
                     <span className="text-xs text-cyber-muted">{ds.samples.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-cyber-accent">{ds.category}</span>
+                    <span className="text-xs text-cyber-accent">{ds_(ds, 'category')}</span>
                     <span className="text-xs text-cyber-muted">{ds.languages.join('/')}</span>
                   </div>
                 </button>
@@ -888,10 +892,10 @@ function BenchmarkTab() {
           {selectedInfo && (
             <div className="space-y-2 text-sm">
               <div>
-                <span className="font-semibold text-cyber-text">{selectedInfo.name}</span>
+                <span className="font-semibold text-cyber-text">{ds_(selectedInfo, 'name')}</span>
                 <span className="text-xs text-cyber-muted font-mono ml-2">{selectedInfo.id}</span>
               </div>
-              <p className="text-xs text-cyber-text/70 leading-relaxed">{selectedInfo.description}</p>
+              <p className="text-xs text-cyber-text/70 leading-relaxed">{ds_(selectedInfo, 'description')}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 <div><span className="text-cyber-muted">{t('prompt.bench.samples')}:</span> <span className="text-cyber-text">{selectedInfo.samples.toLocaleString()}</span></div>
                 <div><span className="text-cyber-muted">{t('prompt.bench.license')}:</span> <span className="text-cyber-text">{selectedInfo.license}</span></div>

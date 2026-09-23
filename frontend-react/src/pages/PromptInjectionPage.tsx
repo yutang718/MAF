@@ -291,7 +291,7 @@ function AnalysisTab({
                 <div className="mt-3 pt-3 border-t border-cyber-border/40">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <ScoreCell label={t('prompt.benign')} value={mafResult.scores.BENIGN} color="text-cyber-green" />
-                    <ScoreCell label={t('prompt.injectionLabel')} value={mafResult.scores.INJECTION} color="text-amber-400" />
+                    <ScoreCell label={t('prompt.injectionLabel')} value={mafResult.scores.INJECTION} color="text-cyber-warning" />
                     <ScoreCell label={t('prompt.harmfulLabel')} value={mafResult.scores.HARMFUL_REQUEST} color="text-cyber-danger" />
                   </div>
                 </div>
@@ -381,7 +381,7 @@ function ModelResultCard({ title, safe, label, score, scoreLabel, threshold, lat
 }
 
 function LatencyBadge({ ms }: { ms: number }) {
-  const cls = ms < 150 ? 'text-cyber-green' : ms < 500 ? 'text-amber-400' : 'text-cyber-danger'
+  const cls = ms < 150 ? 'text-cyber-green' : ms < 500 ? 'text-cyber-warning' : 'text-cyber-danger'
   return <span className={`text-xs font-mono ${cls}`} title="inference time">⏱ {ms.toFixed(0)} ms</span>
 }
 
@@ -1172,7 +1172,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                 </span>
               )}
               {results.sample_distribution.injection > 0 && (
-                <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 font-medium">
+                <span className="px-2 py-1 rounded bg-cyber-danger/10 text-cyber-danger font-medium">
                   {t('prompt.bench.injectionSamples')}: {results.sample_distribution.injection}
                 </span>
               )}
@@ -1204,7 +1204,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <MetricCell label={t('prompt.bench.totalSamples')} value={`${m.total_samples}`} color="text-cyber-text" />
                     <MetricCell label={t('prompt.bench.detectionRate')} value={`${((m.detection_rate || 0) * 100).toFixed(1)}%`} color="text-cyber-accent" />
-                    <MetricCell label={t('prompt.bench.flagged')} value={`${m.detected_injection || 0}`} color="text-amber-400" />
+                    <MetricCell label={t('prompt.bench.flagged')} value={`${m.detected_injection || 0}`} color="text-cyber-warning" />
                     <MetricCell label={t('prompt.bench.passed')} value={`${m.detected_benign || 0}`} color="text-cyber-green" />
                   </div>
                 </>
@@ -1212,23 +1212,23 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                 <>
                   {/* Key metrics */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <MetricCell label={t('prompt.bench.accuracy')} value={`${(m.accuracy * 100).toFixed(1)}%`} color={m.accuracy > 0.9 ? 'text-cyber-green' : m.accuracy > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
-                    <MetricCell label={t('prompt.bench.f1')} value={`${(m.f1_score * 100).toFixed(1)}%`} color={m.f1_score > 0.9 ? 'text-cyber-green' : m.f1_score > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
+                    <MetricCell label={t('prompt.bench.accuracy')} value={`${(m.accuracy * 100).toFixed(1)}%`} color={m.accuracy > 0.9 ? 'text-cyber-green' : m.accuracy > 0.7 ? 'text-cyber-warning' : 'text-cyber-danger'} />
+                    <MetricCell label={t('prompt.bench.f1')} value={`${(m.f1_score * 100).toFixed(1)}%`} color={m.f1_score > 0.9 ? 'text-cyber-green' : m.f1_score > 0.7 ? 'text-cyber-warning' : 'text-cyber-danger'} />
                     <MetricCell label={t('prompt.bench.precision')} value={`${(m.precision * 100).toFixed(1)}%`} color="text-cyber-text" />
                     <MetricCell label={t('prompt.bench.recall')} value={`${(m.recall * 100).toFixed(1)}%`} color="text-cyber-text" />
                   </div>
 
                   {/* Error rates */}
                   <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-cyber-border/30">
-                    <MetricCell label={t('prompt.bench.fpr')} value={`${(m.false_positive_rate * 100).toFixed(1)}%`} color="text-amber-400" />
+                    <MetricCell label={t('prompt.bench.fpr')} value={`${(m.false_positive_rate * 100).toFixed(1)}%`} color="text-cyber-warning" />
                     <MetricCell label={t('prompt.bench.fnr')} value={`${(m.false_negative_rate * 100).toFixed(1)}%`} color="text-cyber-danger" />
                   </div>
 
                   {/* Confusion matrix */}
                   <div className="grid grid-cols-2 gap-1 text-center text-xs mb-4 pt-3 border-t border-cyber-border/30">
                     <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tp}</div><div className="text-cyber-muted">TP</div></div>
-                    <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fp}</div><div className="text-cyber-muted">FP</div></div>
-                    <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fn}</div><div className="text-cyber-muted">FN</div></div>
+                    <div className="bg-cyber-danger/10 p-2 rounded"><div className="font-mono font-bold text-cyber-danger">{m.confusion_matrix.fp}</div><div className="text-cyber-muted">FP</div></div>
+                    <div className="bg-cyber-danger/10 p-2 rounded"><div className="font-mono font-bold text-cyber-danger">{m.confusion_matrix.fn}</div><div className="text-cyber-muted">FN</div></div>
                     <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tn}</div><div className="text-cyber-muted">TN</div></div>
                   </div>
                 </>

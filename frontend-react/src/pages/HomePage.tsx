@@ -50,8 +50,8 @@ export default function HomePage() {
             <div className="text-right">
               <div className="text-xs text-cyber-muted uppercase tracking-widest">{t('home.systemStatus')}</div>
               <div className="flex items-center gap-2 mt-1 justify-end">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse-glow" />
-                <span className="text-sm text-emerald-400 font-semibold">{t('home.allOperational')}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-cyber-green animate-pulse-glow" />
+                <span className="text-sm text-cyber-green font-semibold">{t('home.allOperational')}</span>
               </div>
             </div>
           </div>

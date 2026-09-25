@@ -333,7 +333,7 @@ function ModelConfigCard({ name, tag, config, onChange, thresholdLabel, extraCon
               <label className="text-sm text-cyber-muted">{thresholdLabel}</label>
               <span className="text-sm font-mono text-cyber-accent">{config.threshold.toFixed(2)}</span>
             </div>
-            <input type="range" min="0" max="1" step="0.05" value={config.threshold}
+            <input type="range" min="0" max="1" step="0.1" value={config.threshold}
               onChange={(e) => onChange({ ...config, threshold: Number(e.target.value) })}
               className="w-full mt-1.5 accent-cyber-accent h-1.5 cursor-pointer" />
           </div>
@@ -961,11 +961,11 @@ function BenchmarkTab() {
                 <span className="text-xs text-cyber-muted truncate">{m.name.split(' ')[0]}</span>
               </div>
               <div className="flex items-center gap-2">
-                <input type="range" min="0" max="1" step="0.0000001"
+                <input type="range" min="0" max="1" step="0.1"
                   value={thresholds[m.key]}
                   onChange={e => setThresholds(prev => ({ ...prev, [m.key]: Number(e.target.value) }))}
                   className="flex-1 accent-cyber-accent h-1 cursor-pointer" />
-                <input type="number" min="0" max="1" step="0.0000001"
+                <input type="number" min="0" max="1" step="0.1"
                   value={thresholds[m.key]}
                   onChange={e => { const v = Number(e.target.value); if (v >= 0 && v <= 1) setThresholds(prev => ({ ...prev, [m.key]: v })) }}
                   className="w-24 bg-cyber-bg border border-cyber-border rounded px-1 py-0.5 text-xs font-mono text-cyber-accent text-center" />

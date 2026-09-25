@@ -125,26 +125,73 @@ async def upload_and_run(
     content = await file.read()
     filename = file.filename or ""
 
-    try:
-        if filename.endswith(".xlsx") or filename.endswith(".xls"):
+    lower = filename.lower()
+    if lower.endswith((".xlsx", ".xls")):
+        try:
             df = pd.read_excel(io.BytesIO(content), engine="openpyxl")
-        elif filename.endswith(".csv"):
-            df = pd.read_csv(io.BytesIO(content))
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file format. Use .xlsx, .xls, or .csv")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {e}")
+    elif lower.endswith((".csv", ".tsv", ".txt")):
+        # Spreadsheet exports are rarely UTF-8: Excel on Windows writes cp1252 and
+        # Chinese locales write GBK. Trying a fixed list of encodings in order is
+        # not enough, because cp1252 decodes any byte sequence -- a GBK file would
+        # come through as silent mojibake and quietly benchmark garbage. UTF-8 is
+        # self-validating so a strict decode is trustworthy; otherwise detect.
+        text, encoding = None, None
+        try:
+            text = content.decode("utf-8-sig")
+            encoding = "utf-8-sig"
+        except UnicodeDecodeError:
+            from charset_normalizer import from_bytes
+            best = from_bytes(content).best()
+            if best is not None:
+                encoding = best.encoding
+                text = str(best)
+        if text is None:
+            for candidate in ("cp1252", "latin-1"):
+                try:
+                    text = content.decode(candidate)
+                    encoding = candidate
+                    break
+                except UnicodeDecodeError:
+                    continue
+        if text is None:
+            raise HTTPException(status_code=400, detail="Could not decode the file; save it as UTF-8 and retry.")
 
-    # Find text column (flexible naming)
+        # Sniff the delimiter from a restricted set. Letting csv.Sniffer choose
+        # freely makes it pick a letter out of a single-column header.
+        header = text.split("\n", 1)[0]
+        sep = max(",;\t|", key=header.count)
+        if header.count(sep) == 0:
+            sep = "\t" if lower.endswith(".tsv") else ","
+
+        try:
+            df = pd.read_csv(io.BytesIO(content), encoding=encoding, sep=sep)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file format. Use .xlsx, .xls, .csv or .tsv")
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Find text column (flexible naming, case-insensitive)
     text_col = None
-    for col in ["text", "Text", "TEXT", "prompt", "Prompt", "input", "Input", "content", "Content"]:
-        if col in df.columns:
-            text_col = col
+    by_lower = {str(c).lower(): c for c in df.columns}
+    for name in ("text", "prompt", "input", "content", "question", "query", "sentence"):
+        if name in by_lower:
+            text_col = by_lower[name]
             break
+    # A single-column file can only be the texts, whatever the header says.
+    if not text_col and len(df.columns) == 1:
+        text_col = df.columns[0]
     if not text_col:
-        raise HTTPException(status_code=400, detail=f"No text column found. Expected one of: text, prompt, input, content. Found: {list(df.columns)}")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"No text column found in {filename or 'the file'}. Rename one column to 'text' "
+                f"(or prompt / input / content / question / query). Columns found: {list(df.columns)}"
+            ),
+        )
 
     # Find label column (optional)
     label_col = None

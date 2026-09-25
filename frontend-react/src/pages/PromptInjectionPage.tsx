@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { detectProventra, detectModernGuard, detectWolfDefender, detectMafGuard, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun, uploadAndRunBenchmark } from '../api/prompt'
+import { errorMessage } from '../api/client'
 import type { ProventraResult, MafGuardResult } from '../types/prompt'
 import { useTranslation } from '../i18n/context'
 
@@ -1063,7 +1064,7 @@ function UploadBenchmark({ selectedModels, thresholds, onStarted }: {
       setUploadInfo(`${file.name}: ${result.samples_count} samples, ${result.has_labels ? 'labeled' : 'unlabeled'}`)
       onStarted(result.run_id, result.dataset_id)
     } catch (err) {
-      setUploadInfo(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setUploadInfo(`Error: ${errorMessage(err)}`)
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''

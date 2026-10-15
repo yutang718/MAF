@@ -136,8 +136,9 @@ class WolfDefenderDetector(MmBertInjectionDetector):
 class MafGuardDetector(MmBertInjectionDetector):
     """Project-trained 3-class guard (BENIGN / INJECTION / HARMFUL_REQUEST), see training/train.py.
 
-    threat_score = 1 - P(BENIGN); the input is blocked when threat_score >= threshold.
-    Loaded from a local directory (MAF_GUARD_MODEL_PATH), so it is optional at runtime.
+    Injection and harmful request are judged independently, each against its own threshold:
+    is_injection = P(INJECTION) >= injection_threshold,
+    is_harmful_request = P(HARMFUL_REQUEST) >= harmful_threshold.
     """
 
     DEFAULT_PATH = "yutang718/evyd-defender"  # private Hub repo (version-less; tags v3/v4/...); override with MAF_GUARD_MODEL_PATH
@@ -147,6 +148,8 @@ class MafGuardDetector(MmBertInjectionDetector):
         path = os.getenv("MAF_GUARD_MODEL_PATH", self.DEFAULT_PATH)
         super().__init__(path, "EVYD Defender")
         self.classes = ["BENIGN", "INJECTION", "HARMFUL_REQUEST"]
+        self.injection_threshold = float(os.getenv("MAF_GUARD_INJECTION_THRESHOLD", "0.5"))
+        self.harmful_threshold = float(os.getenv("MAF_GUARD_HARMFUL_THRESHOLD", "0.5"))
 
     def initialize(self) -> None:
         import os
@@ -159,32 +162,60 @@ class MafGuardDetector(MmBertInjectionDetector):
     def _scores(self, probs) -> Dict[str, float]:
         return {label: round(float(p), 4) for label, p in zip(self.classes, probs)}
 
-    def detect(self, text: str, threshold: Optional[float] = None) -> Dict[str, Any]:
+    def _verdict(self, probs, injection_threshold: float, harmful_threshold: float) -> Dict[str, Any]:
+        scores = {label: float(p) for label, p in zip(self.classes, probs)}
+        injection_score = scores["INJECTION"]
+        harmful_score = scores["HARMFUL_REQUEST"]
+        is_injection = injection_score >= injection_threshold
+        is_harmful = harmful_score >= harmful_threshold
+        if is_injection and (not is_harmful or injection_score >= harmful_score):
+            label = "INJECTION"
+        elif is_harmful:
+            label = "HARMFUL_REQUEST"
+        else:
+            label = "BENIGN"
+        return {
+            "is_injection": is_injection,
+            "is_harmful_request": is_harmful,
+            "injection_score": round(injection_score, 4),
+            "harmful_score": round(harmful_score, 4),
+            "label": label,
+        }
+
+    def detect(self, text: str, injection_threshold: Optional[float] = None,
+               harmful_threshold: Optional[float] = None) -> Dict[str, Any]:
         if not self._initialized:
             self.initialize()
-        if threshold is None:
-            threshold = self.threshold
+        if injection_threshold is None:
+            injection_threshold = self.injection_threshold
+        if harmful_threshold is None:
+            harmful_threshold = self.harmful_threshold
 
         probs = self._predict([text])[0]
-        threat_score = 1.0 - float(probs[0])
-        predicted_idx = int(np.argmax(probs))
-        is_safe = threat_score < threshold
-
         return {
             "model": self.MODEL_ID,
             "text": text,
-            "is_injection": not is_safe,
-            "is_safe": is_safe,
-            "threat_score": round(threat_score, 4),
-            "injection_score": round(threat_score, 4),  # compat with binary detectors
-            "safe_score": round(float(probs[0]), 4),
+            **self._verdict(probs, injection_threshold, harmful_threshold),
+            "injection_threshold": injection_threshold,
+            "harmful_threshold": harmful_threshold,
             "scores": self._scores(probs),
-            "threshold": threshold,
-            "label": self.classes[predicted_idx],
-            "confidence": round(float(probs[predicted_idx]), 4),
         }
 
+    def detect_injection(self, text: str, threshold: Optional[float] = None) -> Dict[str, Any]:
+        r = self.detect(text, injection_threshold=threshold)
+        return {"model": r["model"], "text": text, "is_injection": r["is_injection"],
+                "injection_score": r["injection_score"], "threshold": r["injection_threshold"]}
+
+    def detect_harmful_request(self, text: str, threshold: Optional[float] = None) -> Dict[str, Any]:
+        r = self.detect(text, harmful_threshold=threshold)
+        return {"model": r["model"], "text": text, "is_harmful_request": r["is_harmful_request"],
+                "harmful_score": r["harmful_score"], "threshold": r["harmful_threshold"]}
+
     def detect_batch(self, texts: list, threshold: Optional[float] = None) -> list:
+        """Benchmark path: datasets are benign vs attack, so any non-benign verdict counts as an attack.
+
+        threshold applies to both injection and harmful request.
+        """
         if not self._initialized:
             self.initialize()
         if threshold is None:
@@ -193,12 +224,11 @@ class MafGuardDetector(MmBertInjectionDetector):
         probs = self._predict(texts)
         results = []
         for i in range(len(texts)):
-            threat_score = 1.0 - float(probs[i][0])
-            is_safe = threat_score < threshold
+            v = self._verdict(probs[i], threshold, threshold)
             results.append({
-                "is_safe": is_safe,
-                "injection_score": round(threat_score, 4),
-                "label": "SAFE" if is_safe else self.classes[int(np.argmax(probs[i]))],
+                "is_safe": not (v["is_injection"] or v["is_harmful_request"]),
+                "injection_score": max(v["injection_score"], v["harmful_score"]),
+                "label": "SAFE" if v["label"] == "BENIGN" else v["label"],
                 "scores": self._scores(probs[i]),
             })
         return results

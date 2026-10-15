@@ -282,9 +282,9 @@ function AnalysisTab({
           {mafConfig.enabled && mafResult && (
             <ModelResultCard
               title="EVYD Defender V4"
-              safe={mafResult.is_safe}
+              safe={!mafResult.is_injection && !mafResult.is_harmful_request}
               label={mafResult.label}
-              score={mafResult.threat_score}
+              score={Math.max(mafResult.injection_score, mafResult.harmful_score)}
               scoreLabel={t('prompt.mafThreatScore')}
               threshold={mafConfig.threshold}
               latencyMs={mafResult.latency_ms}
@@ -572,7 +572,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
           if (keys[idx] === 'v') { row.vLabel = (v.label as string).toLowerCase(); row.vScore = v.injection_score; row.vMs = v.latency_ms ?? 0 }
           if (keys[idx] === 'm') { row.mLabel = (v.label as string).toLowerCase(); row.mScore = v.injection_score; row.mMs = v.latency_ms ?? 0 }
           if (keys[idx] === 'w') { row.wLabel = (v.label as string).toLowerCase(); row.wScore = v.injection_score; row.wMs = v.latency_ms ?? 0 }
-          if (keys[idx] === 'f') { row.fLabel = (v.label as string).toLowerCase(); row.fScore = v.threat_score; row.fMs = v.latency_ms ?? 0 }
+          if (keys[idx] === 'f') { row.fLabel = (v.label as string).toLowerCase(); row.fScore = Math.max(v.injection_score, v.harmful_score); row.fMs = v.latency_ms ?? 0 }
         } else {
           if (keys[idx] === 'v') row.vLabel = 'error'
           if (keys[idx] === 'm') row.mLabel = 'error'

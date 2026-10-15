@@ -16,8 +16,8 @@ export async function detectWolfDefender(text: string, threshold: number = 0.5):
   return data
 }
 
-export async function detectMafGuard(text: string, threshold: number = 0.5): Promise<MafGuardResult> {
-  const { data } = await apiClient.post('/mafguard/detect', { text, threshold })
+export async function detectMafGuard(text: string, injectionThreshold: number = 0.5, harmfulThreshold: number = injectionThreshold): Promise<MafGuardResult> {
+  const { data } = await apiClient.post('/mafguard/detect', { text, injection_threshold: injectionThreshold, harmful_threshold: harmfulThreshold })
   return data
 }
 

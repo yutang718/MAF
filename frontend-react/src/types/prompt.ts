@@ -11,7 +11,16 @@ export interface ProventraResult {
   latency_ms?: number
 }
 
-export interface MafGuardResult extends ProventraResult {
-  threat_score: number
+export interface MafGuardResult {
+  model: string
+  text: string
+  is_injection: boolean
+  is_harmful_request: boolean
+  injection_score: number
+  harmful_score: number
+  injection_threshold: number
+  harmful_threshold: number
+  label: 'BENIGN' | 'INJECTION' | 'HARMFUL_REQUEST'
   scores: { BENIGN: number; INJECTION: number; HARMFUL_REQUEST: number }
+  latency_ms?: number
 }

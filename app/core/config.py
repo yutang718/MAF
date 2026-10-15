@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """应用配置类"""
     PROJECT_NAME: str = "EvydGuard"
     PROJECT_DESCRIPTION: str = "AI Safety Guard API"
-    VERSION: str = "1.0.0"
+    VERSION: str = "2.0.0"
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     
     # API配置

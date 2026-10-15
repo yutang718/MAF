@@ -82,6 +82,22 @@ Once the application is running, visit:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## EVYD Defender API (v2.0.0)
+
+EVYD Defender is a 3-class model (BENIGN / INJECTION / HARMFUL_REQUEST). Since v2.0.0
+injection and harmful request are judged separately, each against its own threshold
+(`is_safe` / `threat_score` and the single `threshold` field were removed).
+
+| Endpoint | Body | Verdict |
+|---|---|---|
+| `POST /api/v1/mafguard/detect` | `{text, injection_threshold?, harmful_threshold?}` | `is_injection`, `is_harmful_request` |
+| `POST /api/v1/mafguard/is_injection` | `{text, threshold?}` | `is_injection` |
+| `POST /api/v1/mafguard/is_harmful_request` | `{text, threshold?}` | `is_harmful_request` |
+
+`is_injection = P(INJECTION) >= injection_threshold`, `is_harmful_request = P(HARMFUL_REQUEST) >= harmful_threshold`.
+Omitted thresholds fall back to `MAF_GUARD_INJECTION_THRESHOLD` / `MAF_GUARD_HARMFUL_THRESHOLD` (default 0.5).
+Unknown fields (e.g. the old `threshold` on `/detect`) are rejected with 422.
+
 ## Security Features
 
 1. **Prompt Injection Detection**

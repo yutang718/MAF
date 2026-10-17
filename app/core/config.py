@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     
     # DeepSeek API settings
-    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-ee2ee84b13384efa9594eda1d1c2f02e")
+    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
     
     TRANSFORMERS_VERBOSITY: str = "error"
     PYTHONWARNINGS: str = "ignore::UserWarning"

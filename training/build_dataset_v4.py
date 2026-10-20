@@ -8,6 +8,10 @@
            benign contrasts ("export my records"). Needed because the consult set alone
            teaches the model that modify/delete/record/password vocabulary is benign and it
            stops flagging "list all patient records" (v4.0 real harmful recall 0.875 -> 0.75).
+  redteam  data/redteam/*.jsonl   QA team's labelled red-team list (v5): medical consults written
+           in a translated, first-person style that v4 scored as INJECTION, short "How to ..."
+           questions it scored as HARMFUL, plus the real attacks among them. Optional (--redteam "").
+           qa_benign.jsonl (v5.2): 22 ZH consults/refill/wearable requests v5 blocked (EN/MS added).
 
 Outputs data/v4/{train,test,translated}.jsonl in the same format as data/v3. Both sets are
 split 80/20 *by line/question id* so the EN, ZH and MS versions of one item never straddle
@@ -31,6 +35,7 @@ def main():
     ap.add_argument("--src", default=str(ROOT / "data" / "v3"))
     ap.add_argument("--consult", default=str(ROOT / "data" / "eval" / "medical_consult_benign.jsonl"))
     ap.add_argument("--authz", default=str(ROOT / "data" / "authz"))
+    ap.add_argument("--redteam", default=str(ROOT / "data" / "redteam"))
     ap.add_argument("--out", default=str(ROOT / "data" / "v4"))
     ap.add_argument("--test-frac", type=float, default=0.2)
     ap.add_argument("--seed", type=int, default=42)
@@ -59,6 +64,13 @@ def main():
             authz += [{"id": f"{stem}-{i}", "text": t, "label": label, "lang": lang} for i, t in enumerate(lines)]
     a_train, a_test = split_by_id(authz, "authz")
 
+    r_train, r_test = [], []
+    if args.redteam:
+        # split each file on its own so adding a file leaves the earlier files' test split unchanged
+        for f in sorted(Path(args.redteam).glob("*.jsonl")):
+            tr, te = split_by_id([json.loads(l) for l in f.open(encoding="utf-8")], "redteam")
+            r_train += tr; r_test += te
+
     train = [json.loads(l) for l in (src / "train.jsonl").open(encoding="utf-8")]
     test = [json.loads(l) for l in (src / "test.jsonl").open(encoding="utf-8")]
 
@@ -71,9 +83,9 @@ def main():
         if r.get("source") == "real" and r["text"].strip() in cur and cur[r["text"].strip()] != r["label"]:
             r["label"] = cur[r["text"].strip()]; fixed += 1
     print(f"overlaid {fixed} real-row labels from current user_inputs_cleaned.csv")
-    held = {r["text"] for r in c_test + a_test}
-    train = [r for r in train if r["text"] not in held] + c_train + a_train
-    test = test + c_test + a_test
+    held = {r["text"] for r in c_test + a_test + r_test}
+    train = [r for r in train if r["text"] not in held] + c_train + a_train + r_train
+    test = test + c_test + a_test + r_test
 
     for name, data in [("train", train), ("test", test)]:
         with (out / f"{name}.jsonl").open("w", encoding="utf-8") as f:

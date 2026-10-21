@@ -30,6 +30,13 @@ def due_connectors() -> list[int]:
 
 
 def tick() -> None:
+    from govern.notify import send_weekly_if_due
+    with new_session() as db:
+        try:
+            if send_weekly_if_due(db):
+                logger.info("weekly security report sent to Teams")
+        except Exception:
+            logger.exception("weekly report check failed")
     for connector_id in due_connectors():
         with new_session() as db:
             try:

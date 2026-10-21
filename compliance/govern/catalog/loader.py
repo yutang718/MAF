@@ -72,3 +72,48 @@ def checks_by_control() -> dict[tuple[str, str], tuple[str, ...]]:
             for cid in control_ids:
                 index.setdefault((fw_id, cid), []).append(check_id)
     return {k: tuple(v) for k, v in index.items()}
+
+
+@dataclass(frozen=True)
+class PostureItem:
+    code: str
+    check: str | None  # an automated check, or
+    rule: str | None  # an alert rule whose open alerts are the findings
+    sla: bool  # check status comes from overdue findings rather than the check itself
+
+
+@dataclass(frozen=True)
+class PostureDomain:
+    id: str
+    source: str
+    name: dict[str, str]
+    items: tuple[PostureItem, ...]
+
+
+@lru_cache
+def posture() -> tuple[PostureDomain, ...]:
+    """The security-check catalogue shown on the posture page, in display order."""
+    raw = yaml.safe_load((HERE / "posture.yaml").read_text(encoding="utf-8"))
+    domains, codes = [], set()
+    for d in raw["domains"]:
+        items = []
+        for it in d["items"]:
+            if it["code"] in codes:
+                raise ValueError(f"posture.yaml: duplicate code {it['code']}")
+            codes.add(it["code"])
+            if bool(it.get("check")) == bool(it.get("rule")):
+                raise ValueError(f"posture.yaml: {it['code']} needs exactly one of check or rule")
+            items.append(PostureItem(it["code"], it.get("check"), it.get("rule"), bool(it.get("sla"))))
+        domains.append(PostureDomain(d["id"], d["source"], d["name"], tuple(items)))
+    return tuple(domains)
+
+
+@lru_cache
+def sla_graded() -> frozenset[str]:
+    return frozenset(it.check for d in posture() for it in d.items if it.check and it.sla)
+
+
+@lru_cache
+def posture_codes() -> dict[str, str]:
+    """check or rule id -> posture code"""
+    return {(it.check or it.rule): it.code for d in posture() for it in d.items}

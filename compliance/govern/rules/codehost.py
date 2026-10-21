@@ -62,13 +62,12 @@ GITLAB_PATTERNS: list[tuple[tuple[str, ...], str, str, str]] = [
      "Branch protection removed", "分支保护被移除"),
     (("project_transferred", "transferred project", "group_transferred"), "high",
      "Project or group transferred", "项目或群组被转移"),
-    (("project_export", "export file download", "export started"), "medium",
-     "Project exported", "项目被导出"),
     (("personal_access_token_created", "group_access_token_created", "project_access_token_created"), "low",
      "Access token created", "创建了访问令牌"),
 ]
-GITLAB_DOWNLOAD_HINTS = ("repository_download", "repository_git_operation", "git_clone", "repository download",
-                         "download started")
+# Actions on gitlab.git events, produced from ingested GitLab logs (govern/ingest/gitlab_logs.py).
+GITLAB_GIT_DOWNLOADS = ("git.pull", "archive.download", "export.download")
+ROLE_SEVERITY = {"owner": ("high", "Owner"), "maintainer": ("medium", "Maintainer")}
 
 
 def gitlab_classify(e) -> tuple[str, str, str] | None:
@@ -80,8 +79,13 @@ def gitlab_classify(e) -> tuple[str, str, str] | None:
         return "critical" if to == "public" else "high", f"Visibility changed to {to}", f"可见性被改为{zh}"
     if "two_factor" in change and to in ("false", "0", "disabled"):
         return "critical", "Group 2FA requirement turned off", "群组 2FA 强制要求被关闭"
-    if e.data.get("add") == "user_access" and str(e.data.get("as") or "").lower() == "owner":
-        return "medium", "Owner access granted", "授予了所有者权限"
+    if ("admin" in change or "admin" in text) and to in ("true", "1", "admin"):
+        return "critical", "Instance administrator granted", "授予了实例管理员权限"
+    granted = str(e.data.get("as") or "").lower() if e.data.get("add") == "user_access" else (
+        to if "access" in change else "")
+    for role, (sev, label) in ROLE_SEVERITY.items():
+        if role in granted:
+            return sev, f"{label} access granted", f"授予了 {label} 权限"
     for needles, sev, en, zh in GITLAB_PATTERNS:
         if any(n in text for n in needles):
             return sev, en, zh
@@ -90,13 +94,15 @@ def gitlab_classify(e) -> tuple[str, str, str] | None:
 
 @rule("gitlab.risky_operation", "gitlab",
       title={"en": "Risky GitLab operation", "zh": "GitLab 风险操作"},
-      description={"en": "Visibility made public/internal, projects deleted, transferred or exported, branch protection "
-                         "removed, 2FA requirement turned off, owners added. Matched on event details; verify against "
-                         "your GitLab version's audit event names.",
-                   "zh": "可见性改为公开/内部、项目删除/转移/导出、分支保护移除、关闭 2FA 要求、新增所有者。"
-                         "按事件详情匹配，请对照所用 GitLab 版本的审计事件名称确认。"})
+      description={"en": "Admin, Owner or Maintainer granted; visibility made public/internal; projects deleted or "
+                         "transferred; branch protection removed; 2FA requirement turned off. Matched on audit event "
+                         "details; verify against your GitLab version's event names.",
+                   "zh": "授予管理员、Owner 或 Maintainer；可见性改为公开/内部；项目被删除或转移；分支保护被移除；"
+                         "关闭 2FA 要求。按审计事件详情匹配，请对照所用 GitLab 版本的事件名称确认。"})
 def gitlab_risky(ctx, events):
     for e in events:
+        if e.kind != "gitlab.audit":
+            continue
         hit = gitlab_classify(e)
         if hit is None:
             continue
@@ -109,6 +115,8 @@ def gitlab_risky(ctx, events):
 # ─── Bulk download, for both ───────────────────────────────────────────────────
 
 BULK_DEFAULTS = {"distinct_repos": 20, "min_events": 200, "baseline_factor": 5.0, "actor_allowlist": []}
+# CI jobs fetch with this pseudo-user; their volume says nothing about a person.
+GITLAB_BULK_DEFAULTS = {**BULK_DEFAULTS, "actor_allowlist": ["gitlab-ci-token"]}
 
 
 def _bulk(ctx, events, kind: str, rule_id: str, is_download, actions: tuple[str, ...] | None = None):
@@ -157,14 +165,28 @@ def github_bulk(ctx, events):
                      lambda e: e.action in GITHUB_DOWNLOAD_ACTIONS, GITHUB_DOWNLOAD_ACTIONS)
 
 
-@rule("gitlab.bulk_download", "gitlab", defaults=BULK_DEFAULTS,
+@rule("gitlab.bulk_download", "gitlab", defaults=GITLAB_BULK_DEFAULTS,
       title={"en": "Bulk repository download", "zh": "大量下载代码仓库"},
-      description={"en": "One account downloading or exporting many projects in a day. GitLab records git clone events "
-                         "only in some tiers and versions.",
-                   "zh": "同一账号一天内下载或导出大量项目。GitLab 仅在部分版本中记录 git 克隆事件。"})
+      description={"en": "One account cloning, pulling or downloading archives of many projects in a day, or far more "
+                         "than its own 30-day norm. Reads the GitLab logs you ship to the ingestion endpoint.",
+                   "zh": "同一账号一天内克隆、拉取或下载大量项目归档，或远超其近 30 天的日常水平。数据来自推送到接入端点的 GitLab 日志。"})
 def gitlab_bulk(ctx, events):
-    def is_download(e):
-        text = f"{e.action} {e.data.get('custom_message') or ''}".lower()
-        return any(h in text for h in GITLAB_DOWNLOAD_HINTS)
-    yield from _bulk(ctx, events, "gitlab.audit", "gitlab.bulk_download", is_download)
+    git = [e for e in events if e.kind == "gitlab.git"]
+    yield from _bulk(ctx, git, "gitlab.git", "gitlab.bulk_download",
+                     lambda e: e.action in GITLAB_GIT_DOWNLOADS, GITLAB_GIT_DOWNLOADS)
+
+
+@rule("gitlab.project_export", "gitlab",
+      title={"en": "Project export downloaded", "zh": "下载了项目导出文件"},
+      description={"en": "A full project export (repository, issues, merge requests, wiki) was downloaded. One alert "
+                         "per person per project per day.",
+                   "zh": "下载了完整的项目导出文件（仓库、议题、合并请求、Wiki）。每人每项目每天合并为一条告警。"})
+def gitlab_export(ctx, events):
+    for e in events:
+        if e.kind == "gitlab.git" and e.action == "export.download":
+            day = day_bounds(e.occurred_at)[0].date()
+            yield AlertDraft("gitlab.project_export", "high", f"Project export downloaded: {e.target}",
+                             f"下载了项目导出文件：{e.target}", e.occurred_at,
+                             f"gitlab.export:{e.connector_id}:{e.actor}:{e.target}:{day}", e.actor,
+                             {"project": e.target, **e.data})
 

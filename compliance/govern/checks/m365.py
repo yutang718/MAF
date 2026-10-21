@@ -1,7 +1,7 @@
 """Checks over Microsoft 365 facts (Entra ID, Defender, Intune, Purview)."""
 from datetime import timedelta
 
-from govern.checks.base import MAX_ITEMS, Outcome, check, ratio_outcome
+from govern.checks.base import Outcome, check, ratio_outcome
 from govern.timeutil import parse_time, utcnow
 
 GLOBAL_ADMIN_TEMPLATE = "62e90394-69f5-4237-9190-012177145e10"
@@ -174,7 +174,7 @@ def risky_users(facts, p):
     high = [u for u in users if u.get("riskLevel") == "high"]
     status = "fail" if high else ("partial" if users else "pass")
     return Outcome(status, {"high": len(high), "other": len(users) - len(high)},
-                   [{**_user_ref(u), "riskLevel": u.get("riskLevel")} for u in users][:MAX_ITEMS])
+                   [{**_user_ref(u), "riskLevel": u.get("riskLevel")} for u in users])
 
 
 # ─── Defender ──────────────────────────────────────────────────────────────────
@@ -207,7 +207,7 @@ def open_high_incidents(facts, p):
     status = "fail" if overdue else ("partial" if high else "pass")
     return Outcome(status, {"overdue": len(overdue), "open": len(high), "sla_days": p["sla_days"]},
                    [{"name": i.get("displayName"), "created": i.get("createdDateTime"),
-                     "assignedTo": i.get("assignedTo"), "url": i.get("incidentWebUrl")} for i in overdue][:MAX_ITEMS])
+                     "assignedTo": i.get("assignedTo"), "url": i.get("incidentWebUrl")} for i in overdue])
 
 
 @check("m365.data_loss_alerts", "m365", severity="high", requires=["defender.alerts_open"],
@@ -222,7 +222,7 @@ def data_loss_alerts(facts, p):
     status = "fail" if high else ("partial" if alerts else "pass")
     return Outcome(status, {"high": len(high), "other": len(alerts) - len(high)},
                    [{"name": a.get("title"), "severity": a.get("severity"), "created": a.get("createdDateTime"),
-                     "url": a.get("alertWebUrl")} for a in alerts][:MAX_ITEMS])
+                     "url": a.get("alertWebUrl")} for a in alerts])
 
 
 @check("m365.defender_sensor_health", "m365", severity="high", requires=["defender.machines"],

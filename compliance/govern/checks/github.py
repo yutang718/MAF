@@ -1,7 +1,7 @@
 """Checks over GitHub organisation facts."""
 from urllib.parse import urlparse
 
-from govern.checks.base import MAX_ITEMS, Outcome, check, ratio_outcome
+from govern.checks.base import Outcome, check, ratio_outcome
 from govern.checks.codehost import overdue, register_shared
 
 register_shared("github", "GitHub")
@@ -74,7 +74,7 @@ def outside_collaborators(facts, p):
     people = facts["github.outside_collaborators"]
     failing = [{"login": x} for x in people if x.lower() not in allowed]
     return Outcome("pass" if not failing else "partial", {"failing": len(failing), "total": len(people)},
-                   failing[:MAX_ITEMS])
+                   failing)
 
 
 @check("github.public_repos", "github", severity="high", requires=["github.repos"],
@@ -87,7 +87,7 @@ def public_repos(facts, p):
     allowed = {x.lower() for x in p.get("public_repo_allowlist", [])}
     failing = [{"repo": r["name"]} for r in facts["github.repos"]
                if r["visibility"] == "public" and r["name"].lower() not in allowed]
-    return Outcome("fail" if failing else "pass", {"failing": len(failing)}, failing[:MAX_ITEMS])
+    return Outcome("fail" if failing else "pass", {"failing": len(failing)}, failing)
 
 
 @check("github.secret_scanning", "github", severity="high", requires=["github.repos"],
@@ -115,7 +115,7 @@ def secret_scanning(facts, p):
 def open_secret_alerts(facts, p):
     alerts = facts["github.secret_alerts"]
     bypassed = sum(1 for a in alerts if a.get("push_protection_bypassed"))
-    return Outcome("fail" if alerts else "pass", {"count": len(alerts), "bypassed": bypassed}, alerts[:MAX_ITEMS])
+    return Outcome("fail" if alerts else "pass", {"count": len(alerts), "bypassed": bypassed}, alerts)
 
 
 @check("github.dependabot_sla", "github", severity="high", requires=["github.dependabot_alerts"],
@@ -145,7 +145,7 @@ def code_scanning_sla(facts, p):
 def _sla(alerts: list[dict], days: int) -> Outcome:
     late = overdue(alerts, days)
     status = "fail" if late else ("partial" if alerts else "pass")
-    return Outcome(status, {"overdue": len(late), "open": len(alerts), "sla_days": days}, late[:MAX_ITEMS])
+    return Outcome(status, {"overdue": len(late), "open": len(alerts), "sla_days": days}, late)
 
 
 @check("github.webhooks_secure", "github", severity="medium", requires=["github.hooks"],
@@ -170,7 +170,7 @@ def webhooks_secure(facts, p):
     # Plaintext or unverified TLS exposes payloads; a missing secret only weakens origin checks.
     exposed = any({"not_https", "tls_verification_off"} & set(f["issues"]) for f in failing)
     status = "fail" if exposed else ("partial" if failing else "pass")
-    return Outcome(status, {"failing": len(failing), "total": len(hooks)}, failing[:MAX_ITEMS])
+    return Outcome(status, {"failing": len(failing), "total": len(hooks)}, failing)
 
 
 @check("github.token_expiry", "github", severity="medium", requires=["github.credential_authorizations"],

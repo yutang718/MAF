@@ -6,7 +6,6 @@ import httpx
 
 from govern.connectors.archery import ArcheryConnector
 from govern.connectors.github import GitHubConnector
-from govern.connectors.gitlab import GitLabConnector
 from govern.connectors.m365 import M365Connector
 from govern.engine.collector import evaluate_checks
 from govern.models import Connector
@@ -230,38 +229,6 @@ def test_github_without_enterprise_audit_log():
     c = GitHubConnector({"org": "acme"}, {"token": "t"}, transport=transport, sleep=lambda s: None).collect()
     assert "audit.events" in c.unavailable and not c.events
     assert results("github", c.facts, c.unavailable)["github.audit_log"] == "not_available"
-
-
-# ─── GitLab ────────────────────────────────────────────────────────────────────
-
-def test_gitlab_collects_and_grades():
-    routes = {
-        "/api/v4/groups/acme": {"full_path": "acme", "require_two_factor_authentication": True,
-                                "two_factor_grace_period": 48, "prevent_forking_outside_group": None},
-        "/api/v4/groups/acme/members/all": [{"username": "o1", "access_level": 50}, {"username": "d1", "access_level": 30}],
-        "/api/v4/groups/acme/projects": [{"id": 7, "path_with_namespace": "acme/api", "visibility": "internal",
-                                          "default_branch": "main"}],
-        "/api/v4/projects/7/protected_branches/main": {"push_access_levels": [{"access_level": 40}],
-                                                       "allow_force_push": False},
-        "/api/v4/projects/7/approval_rules": (403, {"message": "Premium"}),
-        "/api/v4/projects/7/deploy_keys": [{"title": "k", "can_push": False}],
-        "/api/v4/groups/acme/access_tokens": [{"name": "ci", "active": True, "expires_at": None, "scopes": ["api"]}],
-        "/api/v4/groups/acme/audit_events": [{"id": 1, "created_at": RECENT, "entity_type": "Project",
-                                              "details": {"author_name": "o1", "change": "visibility",
-                                                          "from": "Private", "to": "Public", "entity_path": "acme/api"}}],
-    }
-    transport, _ = router(routes)
-    c = GitLabConnector({"group": "acme"}, {"token": "t"}, transport=transport, sleep=lambda s: None).collect()
-    r = results("gitlab", c.facts, c.unavailable)
-    assert r["gitlab.group_2fa_required"] == "pass"
-    assert r["gitlab.members_without_2fa"] == "not_available"
-    assert r["gitlab.owner_count"] == "partial"
-    assert r["gitlab.public_projects"] == "fail"  # internal
-    assert r["gitlab.branch_protection"] == "fail"  # maintainers can push directly
-    assert r["gitlab.writable_deploy_keys"] == "pass"
-    assert r["gitlab.token_expiry"] == "fail"
-    assert r["gitlab.forking_outside_group"] == "not_available"
-    assert c.events[0].action == "change:visibility" and c.events[0].actor == "o1"
 
 
 # ─── Archery ───────────────────────────────────────────────────────────────────

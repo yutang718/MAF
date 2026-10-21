@@ -231,3 +231,41 @@ class ScoreHistory(Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
     score: Mapped[float] = mapped_column()
     counts: Mapped[dict] = mapped_column(JsonType, default=dict)
+
+
+# ─── Security posture: individual findings tracked over time ───────────────────
+
+class Finding(Base):
+    """One concrete problem (a leaver's account, a CVE on a device...) from first sighting to fix.
+
+    A finding is resolved when its check runs again with data and no longer
+    reports it. If the check can't run, open findings stay open: missing data
+    is not a fix.
+    """
+    __tablename__ = "findings"
+    __table_args__ = (
+        UniqueConstraint("connector_id", "check_id", "key"),
+        Index("ix_findings_open", "check_id", "resolved_at"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    connector_id: Mapped[int] = mapped_column(ForeignKey("connectors.id", ondelete="CASCADE"), index=True)
+    check_id: Mapped[str] = mapped_column(String(80))
+    key: Mapped[str] = mapped_column(String(300))
+    label: Mapped[str] = mapped_column(String(500), default="")
+    severity: Mapped[str] = mapped_column(String(10))
+    exploited: Mapped[bool] = mapped_column(Boolean, default=False)
+    data: Mapped[dict] = mapped_column(JsonType, default=dict)
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Reappearing after a fix reopens the same row; counted so flapping is visible.
+    reopened: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class AppSetting(Base):
+    """Platform settings edited in the UI (report schedule, SLA days, Teams webhook)."""
+    __tablename__ = "app_settings"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[dict] = mapped_column(JsonType, default=dict)
+    secret_enc: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

@@ -1,7 +1,7 @@
 """Checks over Archery facts: masking, privileges, change review."""
 from datetime import date, timedelta
 
-from govern.checks.base import MAX_ITEMS, Outcome, check, ratio_outcome
+from govern.checks.base import Outcome, check, ratio_outcome
 from govern.timeutil import parse_time, utcnow
 
 
@@ -84,7 +84,7 @@ def unmasked_sensitive_columns(facts, p):
 def queryable_credentials(facts, p):
     hits = [{"instance": c["instance"], "column": f"{c['schema']}.{c['table']}.{c['column']}"}
             for c in facts["archery.sensitive_columns"] if "credential" in c["categories"]]
-    return Outcome("partial" if hits else "pass", {"count": len(hits)}, hits[:MAX_ITEMS])
+    return Outcome("partial" if hits else "pass", {"count": len(hits)}, hits)
 
 
 @check("archery.superusers", "archery", severity="medium", requires=["archery.users"], defaults={"max": 3},

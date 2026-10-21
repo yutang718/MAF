@@ -13,6 +13,7 @@ from govern.connectors.base import (
     Collected, ConfigField, Connector, EventRecord, SourceUnavailable,
 )
 from govern.connectors.http import ApiClient, raise_for_source
+from govern.connectors.m365_security import M365SecurityMixin
 from govern.timeutil import parse_time, utcnow
 
 CLOUDS = {
@@ -25,7 +26,7 @@ PAGE_CAP = 50_000  # objects per collection; far above any tenant this is meant 
 ALERT_LOOKBACK_DAYS = 7
 
 
-class M365Connector(Connector):
+class M365Connector(M365SecurityMixin, Connector):
     kind = "m365"
     title = {"en": "Microsoft 365", "zh": "Microsoft 365"}
     fields = (
@@ -38,18 +39,34 @@ class M365Connector(Connector):
                     type="bool", default=True,
                     help={"en": "Needs the WindowsDefenderATP Machine.Read.All permission",
                           "zh": "需要 WindowsDefenderATP 的 Machine.Read.All 权限"}),
+        ConfigField("fetch_kev", {"en": "Use the CISA Known Exploited Vulnerabilities list",
+                                  "zh": "使用 CISA 已知被利用漏洞（KEV）清单"}, type="bool", default=True,
+                    help={"en": "Needs outbound HTTPS to cisa.gov. KEV CVEs get the 7-day remediation clock.",
+                          "zh": "需要能访问 cisa.gov。KEV 中的漏洞按 7 天时限计算。"}),
+        ConfigField("collect_file_downloads", {"en": "Track SharePoint/OneDrive downloads (audit log)",
+                                               "zh": "跟踪 SharePoint/OneDrive 下载（审计日志）"}, type="bool",
+                    default=True, help={"en": "Needs AuditLogsQuery.Read.All and unified audit logging turned on.",
+                                        "zh": "需要 AuditLogsQuery.Read.All，且已开启统一审计日志。"}),
+        ConfigField("break_glass_accounts", {"en": "Break-glass accounts (UPNs)", "zh": "紧急访问账号（UPN）"},
+                    type="list", default=[],
+                    help={"en": "Allowed to hold permanent Global Administrator.",
+                          "zh": "允许永久持有全局管理员角色。"}),
     )
     permissions_help = {
         "en": "Microsoft Graph application permissions: User.Read.All, AuditLog.Read.All, Policy.Read.All, "
-              "RoleManagement.Read.Directory, IdentityRiskyUser.Read.All, SecurityEvents.Read.All, "
-              "SecurityAlert.Read.All, SecurityIncident.Read.All, DeviceManagementManagedDevices.Read.All, "
+              "RoleManagement.Read.Directory, RoleAssignmentSchedule.Read.Directory, Application.Read.All, "
+              "IdentityRiskyUser.Read.All, SecurityEvents.Read.All, SecurityAlert.Read.All, "
+              "SecurityIncident.Read.All, ThreatHunting.Read.All, AuditLogsQuery.Read.All, "
+              "SharePointTenantSettings.Read.All, DeviceManagementManagedDevices.Read.All, "
               "DeviceManagementConfiguration.Read.All, InformationProtectionPolicy.Read.All, "
-              "RecordsManagement.Read.All. Optional: WindowsDefenderATP Machine.Read.All. Grant admin consent.",
+              "RecordsManagement.Read.All; WindowsDefenderATP: Machine.Read.All. Grant admin consent.",
         "zh": "Microsoft Graph 应用程序权限：User.Read.All、AuditLog.Read.All、Policy.Read.All、"
-              "RoleManagement.Read.Directory、IdentityRiskyUser.Read.All、SecurityEvents.Read.All、"
-              "SecurityAlert.Read.All、SecurityIncident.Read.All、DeviceManagementManagedDevices.Read.All、"
+              "RoleManagement.Read.Directory、RoleAssignmentSchedule.Read.Directory、Application.Read.All、"
+              "IdentityRiskyUser.Read.All、SecurityEvents.Read.All、SecurityAlert.Read.All、"
+              "SecurityIncident.Read.All、ThreatHunting.Read.All、AuditLogsQuery.Read.All、"
+              "SharePointTenantSettings.Read.All、DeviceManagementManagedDevices.Read.All、"
               "DeviceManagementConfiguration.Read.All、InformationProtectionPolicy.Read.All、"
-              "RecordsManagement.Read.All。可选：WindowsDefenderATP 的 Machine.Read.All。需要管理员同意。",
+              "RecordsManagement.Read.All；WindowsDefenderATP：Machine.Read.All。需要管理员同意。",
     }
 
     def __init__(self, config, secrets, cursor=None, *, transport: httpx.BaseTransport | None = None,
@@ -61,10 +78,13 @@ class M365Connector(Connector):
         self._token_http = httpx.Client(timeout=30, transport=transport)
         self.graph = ApiClient(graph, lambda: self._auth(f"{graph}/.default"), transport=transport, sleep=sleep)
         self.mde = ApiClient(f"{mde}/api", lambda: self._auth(f"{mde}/.default"), transport=transport, sleep=sleep)
+        self.public = ApiClient("", lambda: {}, transport=transport, sleep=sleep, timeout=30)
+        self._sleep = sleep
 
     def close(self) -> None:
         self.graph.close()
         self.mde.close()
+        self.public.close()
         self._token_http.close()
 
     # ─── auth ──────────────────────────────────────────────────────────────
@@ -111,6 +131,9 @@ class M365Connector(Connector):
         g = self.graph
 
         c.gather("entra.users", self._users(c))
+        c.gather("entra.domains", lambda: sorted({
+            d["name"].lower() for org in self._pages(g, "/v1.0/organization", {"$select": "verifiedDomains"})
+            for d in org.get("verifiedDomains", []) if d.get("name")}))
         c.gather("entra.mfa_registration", lambda: [
             _pick(u, "id", "userPrincipalName", "userDisplayName", "userType", "isAdmin",
                   "isMfaRegistered", "isMfaCapable", "methodsRegistered")
@@ -138,13 +161,13 @@ class M365Connector(Connector):
         if self.config["defender_endpoint"]:
             c.gather("defender.machines", lambda: [
                 _pick(m, "id", "computerDnsName", "osPlatform", "healthStatus", "onboardingStatus",
-                      "riskScore", "exposureLevel", "lastSeen")
+                      "riskScore", "exposureLevel", "lastSeen", "aadDeviceId")
                 for m in self._pages(self.mde, "/machines")])
         else:
             c.unavailable["defender.machines"] = "Defender for Endpoint collection is turned off for this connector"
         c.gather("intune.devices", lambda: self._pages(g, "/v1.0/deviceManagement/managedDevices", {
             "$select": "id,deviceName,operatingSystem,osVersion,complianceState,isEncrypted,jailBroken,"
-                       "lastSyncDateTime,userPrincipalName,managedDeviceOwnerType"}))
+                       "lastSyncDateTime,userPrincipalName,managedDeviceOwnerType,azureADDeviceId"}))
         c.gather("intune.compliance_policies", lambda: [
             {"id": p.get("id"), "displayName": p.get("displayName"), "type": p.get("@odata.type", ""),
              "assigned": bool(p.get("assignments"))}
@@ -156,12 +179,13 @@ class M365Connector(Connector):
             _pick(lbl, "id", "displayName", "retentionDuration", "actionAfterRetentionPeriod")
             for lbl in self._pages(g, "/v1.0/security/labels/retentionLabels")])
 
+        self._security(c)
         self._new_alerts(c)
         return c
 
     def _users(self, c: Collected):
         def fetch():
-            select = "id,displayName,userPrincipalName,accountEnabled,userType,createdDateTime"
+            select = "id,displayName,userPrincipalName,mail,accountEnabled,userType,createdDateTime"
             try:
                 users = self._pages(self.graph, "/v1.0/users", {"$select": select + ",signInActivity", "$top": "999"})
                 c.facts["entra.sign_in_activity"] = True

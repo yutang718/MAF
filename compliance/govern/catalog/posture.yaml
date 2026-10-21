@@ -1,0 +1,100 @@
+# Security-check catalogue: what the posture page shows, in order, with the codes
+# used in reports. `check` = automated check; `rule` = alert rule whose open
+# alerts are the findings. `sla: true` = the check passes or fails on finding age
+# (remediation SLA), not on whether anything is open.
+domains:
+  - id: gitlab_identity
+    source: gitlab
+    name: {en: "GitLab · Accounts and identity", zh: "GitLab · 账号与身份"}
+    items:
+      - {code: GL-ID-01, check: gitlab.leavers}
+      - {code: GL-ID-02, check: gitlab.leaver_credentials}
+      - {code: GL-ID-03, check: gitlab.dormant_users}
+      - {code: GL-ID-04, check: gitlab.non_corporate_users}
+      - {code: GL-ID-05, check: gitlab.user_2fa}
+      - {code: GL-ID-06, check: gitlab.password_login}
+      - {code: GL-ID-07, check: gitlab.signup}
+  - id: gitlab_privilege
+    source: gitlab
+    name: {en: "GitLab · Privileges", zh: "GitLab · 权限分配"}
+    items:
+      - {code: GL-PR-01, check: gitlab.instance_admins}
+      - {code: GL-PR-02, check: gitlab.maintainer_sprawl}
+      - {code: GL-PR-03, check: gitlab.direct_project_members}
+      - {code: GL-PR-04, check: gitlab.external_member_expiry}
+      - {code: GL-PR-05, check: gitlab.blast_radius}
+      - {code: GL-PR-06, rule: gitlab.risky_operation}
+  - id: gitlab_secrets
+    source: gitlab
+    name: {en: "GitLab · Tokens, keys and secrets", zh: "GitLab · 令牌与密钥"}
+    items:
+      - {code: GL-TK-01, check: gitlab.risky_tokens}
+      - {code: GL-TK-02, check: gitlab.idle_tokens}
+      - {code: GL-TK-03, check: gitlab.weak_ssh_keys}
+      - {code: GL-TK-04, check: gitlab.ci_secret_variables}
+      - {code: GL-TK-05, check: gitlab.writable_deploy_keys}
+  - id: gitlab_exfil
+    source: gitlab
+    name: {en: "GitLab · Data exfiltration", zh: "GitLab · 数据外流"}
+    items:
+      - {code: GL-DX-01, rule: gitlab.bulk_download}
+      - {code: GL-DX-02, rule: gitlab.project_export}
+      - {code: GL-DX-03, check: gitlab.external_mirrors}
+      - {code: GL-DX-04, check: gitlab.personal_forks}
+      - {code: GL-DX-05, check: gitlab.leaver_activity}
+      - {code: GL-DX-06, check: gitlab.project_visibility}
+  - id: gitlab_platform
+    source: gitlab
+    name: {en: "GitLab · Platform and code protection", zh: "GitLab · 平台与代码保护"}
+    items:
+      - {code: GL-PL-01, check: gitlab.version_patch}
+      - {code: GL-PL-02, check: gitlab.audit_log}
+      - {code: GL-PL-03, check: gitlab.branch_protection}
+  - id: vuln
+    source: m365
+    name: {en: "Defender · Vulnerability management", zh: "Defender · 漏洞管理"}
+    items:
+      - {code: VM-01, check: m365.vuln_sla, sla: true}
+      - {code: VM-02, check: m365.exploited_vulns, sla: true}
+      - {code: VM-04, check: m365.end_of_support}
+      - {code: VM-05, check: m365.defender_exposure}
+  - id: endpoint
+    source: m365
+    name: {en: "Defender · Endpoint risk", zh: "Defender · 终端风险"}
+    items:
+      - {code: EP-01, check: m365.mde_onboarding_gap}
+      - {code: EP-02, check: m365.defender_sensor_health}
+      - {code: EP-03, check: m365.av_health}
+      - {code: EP-04, check: m365.tamper_protection}
+      - {code: EP-05, check: m365.asr_rules}
+      - {code: EP-06, check: m365.high_risk_devices}
+      - {code: EP-07, check: m365.open_high_incidents}
+      - {code: EP-08, check: m365.device_encryption}
+      - {code: EP-09, check: m365.jailbroken_devices}
+      - {code: EP-10, check: m365.stale_devices}
+  - id: dlp
+    source: m365
+    name: {en: "Purview · Data loss", zh: "Purview · 数据泄露"}
+    items:
+      - {code: DP-01, check: m365.dlp_alert_sla, sla: true}
+      - {code: DP-02, check: m365.dlp_repeat_offenders}
+      - {code: DP-03, check: m365.insider_risk_alerts}
+      - {code: DP-04, rule: m365.bulk_file_download}
+      - {code: DP-05, check: m365.leaver_downloads}
+      - {code: DP-06, check: m365.external_sharing}
+      - {code: DP-07, check: m365.sensitivity_labels}
+      - {code: DP-08, check: m365.forwarding_alerts}
+  - id: m365_identity
+    source: m365
+    name: {en: "Entra ID · Identity", zh: "Entra ID · 身份"}
+    items:
+      - {code: ID-01, check: m365.ca_require_mfa}
+      - {code: ID-02, check: m365.admin_mfa}
+      - {code: ID-03, check: m365.mfa_registered}
+      - {code: ID-04, check: m365.legacy_auth_blocked}
+      - {code: ID-05, check: m365.permanent_privileged_roles}
+      - {code: ID-06, check: m365.risky_app_registrations}
+      - {code: ID-07, check: m365.global_admin_count}
+      - {code: ID-08, check: m365.stale_accounts}
+      - {code: ID-09, check: m365.stale_guests}
+      - {code: ID-10, check: m365.risky_users}

@@ -91,14 +91,11 @@ github.org_2fa_required: &codehost_2fa
   nist_csf: [PR.AA-03]
   hipaa: ["164.312(d)"]
 github.members_without_2fa: *codehost_2fa
-gitlab.group_2fa_required: *codehost_2fa
-gitlab.members_without_2fa: *codehost_2fa
 
 github.owner_count: &codehost_privileged
   iso27001: [A.8.2, A.8.4]
   nist_csf: [PR.AA-05]
   hipaa: ["164.308(a)(4)(ii)(B)"]
-gitlab.owner_count: *codehost_privileged
 
 github.default_permission:
   iso27001: [A.5.15, A.8.3, A.8.4]
@@ -112,8 +109,6 @@ github.outside_collaborators:
 github.public_repos: &codehost_public
   iso27001: [A.8.4, A.8.12]
   nist_csf: [PR.DS-01, PR.AA-05]
-gitlab.public_projects: *codehost_public
-gitlab.forking_outside_group: *codehost_public
 
 github.branch_protection: &codehost_change
   iso27001: [A.8.4, A.8.32, A.8.25]
@@ -130,7 +125,6 @@ github.token_expiry: &codehost_tokens
   iso27001: [A.5.17]
   nist_csf: [PR.AA-01]
   hipaa: ["164.308(a)(5)(ii)(D)"]
-gitlab.token_expiry: *codehost_tokens
 
 github.audit_log: &codehost_audit
   iso27001: [A.8.15, A.8.16]
@@ -200,3 +194,100 @@ archery.query_audit:
   iso27001: [A.8.15, A.8.16]
   nist_csf: [PR.PS-04, DE.CM-03]
   hipaa: ["164.312(b)", "164.308(a)(1)(ii)(D)"]
+
+# ─── GitLab (self-managed) and M365 security operations ──────────────────────
+
+gitlab.leavers: &leavers
+  iso27001: [A.5.18, A.6.5, A.5.16]
+  nist_csf: [PR.AA-01, PR.AA-05]
+  hipaa: ["164.308(a)(3)(ii)(C)"]
+gitlab.leaver_credentials: *leavers
+gitlab.leaver_activity:
+  iso27001: [A.6.5, A.8.16]
+  nist_csf: [DE.CM-03, PR.AA-05]
+  hipaa: ["164.308(a)(3)(ii)(C)", "164.308(a)(1)(ii)(D)"]
+gitlab.dormant_users: *dormant
+gitlab.non_corporate_users:
+  iso27001: [A.5.16, A.5.19]
+  nist_csf: [PR.AA-01, GV.SC-07]
+gitlab.user_2fa: *codehost_2fa
+gitlab.password_login: *codehost_2fa
+gitlab.signup:
+  iso27001: [A.5.16, A.5.18]
+  nist_csf: [PR.AA-01]
+gitlab.instance_admins: *codehost_privileged
+gitlab.maintainer_sprawl: *codehost_privileged
+gitlab.direct_project_members:
+  iso27001: [A.5.15, A.5.18]
+  nist_csf: [PR.AA-05]
+gitlab.external_member_expiry:
+  iso27001: [A.5.18, A.5.20]
+  nist_csf: [PR.AA-05, GV.SC-07]
+gitlab.blast_radius:
+  iso27001: [A.8.3, A.8.4]
+  nist_csf: [PR.AA-05]
+gitlab.risky_tokens: *codehost_tokens
+gitlab.idle_tokens: *codehost_tokens
+gitlab.weak_ssh_keys:
+  iso27001: [A.5.17, A.8.24]
+  nist_csf: [PR.AA-01]
+gitlab.ci_secret_variables:
+  iso27001: [A.5.17, A.8.28]
+  nist_csf: [PR.PS-06, PR.DS-01]
+gitlab.external_mirrors:
+  iso27001: [A.8.12, A.5.14, A.8.4]
+  nist_csf: [PR.DS-01, DE.CM-03]
+gitlab.personal_forks: *codehost_public
+gitlab.project_visibility: *codehost_public
+gitlab.version_patch:
+  iso27001: [A.8.8]
+  nist_csf: [ID.RA-01, PR.PS-02]
+  hipaa: ["164.308(a)(1)(ii)(B)"]
+m365.vuln_sla: &vuln
+  iso27001: [A.8.8]
+  nist_csf: [ID.RA-01, ID.RA-06, PR.PS-02]
+  hipaa: ["164.308(a)(1)(ii)(B)"]
+m365.exploited_vulns: *vuln
+m365.end_of_support:
+  iso27001: [A.8.8, A.8.19]
+  nist_csf: [PR.PS-02, ID.AM-08]
+m365.mde_onboarding_gap:
+  iso27001: [A.8.7, A.8.1]
+  nist_csf: [DE.CM-09]
+  hipaa: ["164.308(a)(5)(ii)(B)"]
+m365.av_health: &malware
+  iso27001: [A.8.7]
+  nist_csf: [DE.CM-09, PR.PS-01]
+  hipaa: ["164.308(a)(5)(ii)(B)"]
+m365.tamper_protection: *malware
+m365.asr_rules:
+  iso27001: [A.8.7, A.8.9]
+  nist_csf: [PR.PS-01, PR.PS-05]
+m365.high_risk_devices:
+  iso27001: [A.8.16, A.5.25]
+  nist_csf: [DE.AE-02, DE.CM-09]
+m365.dlp_alert_sla:
+  iso27001: [A.8.12, A.5.26]
+  nist_csf: [RS.MA-02, PR.DS-01]
+m365.dlp_repeat_offenders:
+  iso27001: [A.8.12, A.6.4]
+  nist_csf: [DE.CM-03]
+m365.insider_risk_alerts:
+  iso27001: [A.8.12, A.5.25]
+  nist_csf: [DE.CM-03, DE.AE-02]
+m365.leaver_downloads:
+  iso27001: [A.6.5, A.8.12, A.5.11]
+  nist_csf: [DE.CM-03, PR.DS-01]
+m365.external_sharing:
+  iso27001: [A.5.14, A.8.12]
+  nist_csf: [PR.DS-02, PR.AA-05]
+m365.forwarding_alerts:
+  iso27001: [A.5.14, A.8.12]
+  nist_csf: [DE.CM-03]
+m365.permanent_privileged_roles:
+  iso27001: [A.8.2, A.5.15]
+  nist_csf: [PR.AA-05]
+  hipaa: ["164.308(a)(4)(ii)(B)"]
+m365.risky_app_registrations:
+  iso27001: [A.8.2, A.5.17, A.5.21]
+  nist_csf: [PR.AA-05, PR.AA-01]

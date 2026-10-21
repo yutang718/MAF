@@ -1,7 +1,8 @@
 import apiClient from './client'
 import type {
   AlertItem, AlertStatus, AuditLogEntry, CheckCatalogEntry, CheckResult, ConnectorInfo, ConnectorType, ControlDetail,
-  EvidenceItem, FrameworkDetail, FrameworkSummary, GovUser, Overview, RiskExceptionItem, Role,
+  EvidenceItem, FindingItem, FrameworkDetail, FrameworkSummary, GovUser, NotifySettings, Overview, PostureSummary,
+  RiskExceptionItem, Role, SlaMetrics,
 } from '../types/governance'
 
 const base = '/governance'
@@ -44,8 +45,8 @@ export const govApi = {
   decideException: (id: number, approve: boolean) => send<RiskExceptionItem>('post', `/exceptions/${id}/decision`, { approve }),
   revokeException: (id: number) => send<RiskExceptionItem>('post', `/exceptions/${id}/revoke`),
 
-  alerts: (params: { status?: AlertStatus[]; severity?: string[]; connector_id?: number; q?: string; days?: number;
-    offset?: number; limit?: number }) =>
+  alerts: (params: { status?: AlertStatus[]; severity?: string[]; connector_id?: number; rule_id?: string; q?: string;
+    days?: number; offset?: number; limit?: number }) =>
     get<{ total: number; items: AlertItem[] }>('/alerts', params),
   updateAlert: (id: number, body: { status?: AlertStatus; assignee_id?: number | null; note?: string }) =>
     send<AlertItem>('patch', `/alerts/${id}`, body),
@@ -58,6 +59,16 @@ export const govApi = {
   deleteConnector: (id: number) => send('delete', `/connectors/${id}`),
   testConnector: (id: number) => send<{ ok: boolean; message: string }>('post', `/connectors/${id}/test`),
   runConnector: (id: number) => send<ConnectorInfo>('post', `/connectors/${id}/run`),
+
+  posture: () => get<PostureSummary>('/posture'),
+  findings: (checkId: string, params: { resolved?: boolean; overdue?: boolean; offset?: number; limit?: number }) =>
+    get<{ total: number; items: FindingItem[] }>(`/posture/checks/${encodeURIComponent(checkId)}/findings`, params),
+  slaMetrics: () => get<SlaMetrics>('/posture/sla'),
+  notifySettings: () => get<NotifySettings>('/settings/notify'),
+  saveNotify: (body: Partial<NotifySettings> & { teams_webhook?: string }) => send<NotifySettings>('put', '/settings/notify', body),
+  testNotify: () => send<{ ok: boolean; message: string }>('post', '/settings/notify/test'),
+  slaSettings: () => get<Record<string, number>>('/settings/sla'),
+  saveSla: (body: Record<string, number>) => send<Record<string, number>>('put', '/settings/sla', body),
 
   users: () => get<GovUser[]>('/users'),
   createUser: (body: { email: string; name: string; role: Role; password: string }) => send<GovUser>('post', '/users', body),

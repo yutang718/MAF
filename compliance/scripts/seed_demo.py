@@ -21,6 +21,7 @@ from govern.engine.collector import run_connector  # noqa: E402
 from govern.main import init_database  # noqa: E402
 from govern.models import Connector  # noqa: E402
 from govern.security.crypto import encrypt_secrets  # noqa: E402
+from tests import fixtures_security as sec  # noqa: E402
 from tests import test_connectors as fx  # noqa: E402
 
 
@@ -29,29 +30,20 @@ def main() -> None:
         raise SystemExit("refusing")
     init_database()
     db = new_session()
-    gitlab_routes = {
-        "/api/v4/groups/acme": {"full_path": "acme", "require_two_factor_authentication": True, "two_factor_grace_period": 48},
-        "/api/v4/groups/acme/members/all": [{"username": "o1", "access_level": 50}, {"username": "o2", "access_level": 50},
-                                            {"username": "d1", "access_level": 30}],
-        "/api/v4/groups/acme/projects": [{"id": 7, "path_with_namespace": "acme/api", "visibility": "internal",
-                                          "default_branch": "main"}],
-        "/api/v4/projects/7/protected_branches/main": {"push_access_levels": [{"access_level": 0}], "allow_force_push": False},
-        "/api/v4/projects/7/approval_rules": [{"approvals_required": 1}],
-        "/api/v4/projects/7/deploy_keys": [],
-        "/api/v4/groups/acme/access_tokens": [{"name": "ci", "active": True, "expires_at": None, "scopes": ["api"]}],
-        "/api/v4/groups/acme/audit_events": [{"id": 1, "created_at": fx.RECENT, "entity_type": "Project",
-                                              "details": {"author_name": "o1", "change": "visibility", "from": "Private",
-                                                          "to": "Public", "entity_path": "acme/api"}}],
-    }
     sources = [
-        ("m365", "EVYD Microsoft 365", {"tenant_id": "tenant-1", "client_id": "app"}, {"client_secret": "demo"},
-         lambda row: M365Connector(row.config, {"client_secret": "demo"}, transport=fx.router(fx.m365_routes())[0],
-                                   sleep=lambda s: None)),
+        ("m365", "EVYD Microsoft 365", {"tenant_id": "tenant-1", "client_id": "app",
+                                        "break_glass_accounts": ["breakglass@evyd.com"]}, {"client_secret": "demo"},
+         lambda row: M365Connector(row.config, {"client_secret": "demo"}, row.cursor, sleep=lambda s: None,
+                                   transport=fx.router({**fx.m365_routes(), **sec.m365_security_routes(),
+                                                        "/v1.0/users": {"value": sec.ENTRA_USERS},
+                                                        "/v1.0/organization": {"value": [{"displayName": "EVYD",
+                                                            "verifiedDomains": [{"name": "evyd.com"}]}]}})[0])),
         ("github", "GitHub · acme", {"org": "acme"}, {"token": "demo"},
          lambda row: GitHubConnector(row.config, {"token": "demo"}, transport=fx.router(fx.github_routes())[0],
                                      sleep=lambda s: None)),
-        ("gitlab", "GitLab · acme", {"group": "acme"}, {"token": "demo"},
-         lambda row: GitLabConnector(row.config, {"token": "demo"}, transport=fx.router(gitlab_routes)[0],
+        ("gitlab", "GitLab · gitlab.evyd.com", {"base_url": "https://gitlab.evyd.com"},
+         {"token": "demo", "log_ingest_token": "demo-ingest-token-0123456789"},
+         lambda row: GitLabConnector(row.config, {"token": "demo"}, transport=fx.router(sec.gitlab_routes())[0],
                                      sleep=lambda s: None)),
         ("archery", "Archery · prod", {"host": "archery-db", "user": "govern_ro", "timezone": fx.time_zone()},
          {"password": "demo", "discovery_dsns": json.dumps([{"instance": "prod-his", "dsn": "mysql://ro@db/his"}])},

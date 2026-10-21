@@ -17,16 +17,18 @@ MAX_RETRY_WAIT = 60
 class ApiClient:
     def __init__(self, base_url: str, auth_headers: Callable[[], dict[str, str]], *,
                  timeout: float = 30.0, transport: httpx.BaseTransport | None = None,
-                 sleep: Callable[[float], None] = time.sleep):
+                 sleep: Callable[[float], None] = time.sleep, verify: bool | str = True):
         self.base_url = base_url.rstrip("/")
         self._auth_headers = auth_headers
-        self._client = httpx.Client(timeout=timeout, transport=transport, follow_redirects=False)
+        self._client = httpx.Client(timeout=timeout, transport=transport, follow_redirects=False, verify=verify)
         self._sleep = sleep
 
     def close(self) -> None:
         self._client.close()
 
     def url(self, path: str) -> str:
+        if not path:
+            return self.base_url
         return path if path.startswith("http") else f"{self.base_url}/{path.lstrip('/')}"
 
     def request(self, method: str, path: str, **kwargs) -> httpx.Response:

@@ -149,3 +149,9 @@ export function Field({ label, hint, children, htmlFor }: { label: string; hint?
     </div>
   )
 }
+
+export function RunStatus({ status }: { status: string }) {
+  const { t } = useTranslation()
+  const style = { ok: 'badge-safe', partial: 'badge-warn', error: 'badge-danger', running: 'badge-info' }[status] ?? 'gov-badge-muted'
+  return <span className={`${style} gov-badge`}>{t(`gov.run.${status}`)}</span>
+}

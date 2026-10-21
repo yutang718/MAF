@@ -77,7 +77,15 @@ def run_connector(db: Session, connector_id: int, factory: SourceFactory = defau
         _prune(db, row.id)
         record_scores(db)
         db.commit()
+    notify_new_alerts(db)
     return run
+
+
+def notify_new_alerts(db: Session) -> None:
+    """Post alerts raised in this session to Teams, after they are committed."""
+    from govern.notify import push_new_critical
+    ids = db.info.pop("new_alert_ids", [])
+    push_new_critical(db, ids)
 
 
 def _event_feed_failed(c: Collected) -> bool:
@@ -95,13 +103,72 @@ def _store(db: Session, row: Connector, run: CollectionRun, c: Collected) -> Non
     run.unavailable = c.unavailable
 
     new_events = _insert_events(db, row, c)
-    results = evaluate_checks(row, facts, c.unavailable, c.errors)
-    for check_id, outcome in results.items():
-        db.add(CheckResult(run_id=run.id, connector_id=row.id, check_id=check_id, status=outcome.status,
-                           details={"params": outcome.params, "items": outcome.items[:MAX_ITEMS]}))
+    results = evaluate_checks(row, facts, c.unavailable, c.errors, cross_facts(db, row))
+    findings = record_results(db, row, run.id, results)
     alerts = raise_alerts(db, row, new_events)
     run.stats = {"facts": len(facts), "unavailable": len(c.unavailable), "events": len(c.events),
-                 "new_events": len(new_events), "checks": len(results), "alerts": alerts}
+                 "new_events": len(new_events), "checks": len(results), "alerts": alerts, **findings}
+    db.flush()
+    reevaluate_dependents(db, row)
+
+
+def record_results(db: Session, row: Connector, run_id: int, results: dict[str, Outcome]) -> dict[str, int]:
+    """Store check results and reconcile their findings; SLA-driven checks take their status from the findings."""
+    from govern.catalog.loader import sla_graded
+    from govern.engine import findings as fnd
+    from govern.settings_store import get as get_setting
+    sla = get_setting(db, "sla")
+    checks = load_checks()
+    totals = {"new_findings": 0, "resolved_findings": 0}
+    for check_id, outcome in results.items():
+        synced = fnd.sync(db, row.id, checks[check_id], outcome)
+        totals["new_findings"] += synced.new + synced.reopened
+        totals["resolved_findings"] += synced.resolved
+        status = outcome.status
+        if check_id in sla_graded() and status in fnd.GRADED:
+            status = fnd.sla_graded_status(db, row.id, check_id, sla)
+        db.add(CheckResult(run_id=run_id, connector_id=row.id, check_id=check_id, status=status,
+                           details={"params": outcome.params, "items": outcome.items[:MAX_ITEMS],
+                                    "item_count": len(outcome.items)}))
+    return totals
+
+
+def latest_facts(db: Session, connector_id: int) -> dict:
+    """Each fact as of the most recent run that collected it."""
+    rows = db.execute(
+        select(Snapshot.key, Snapshot.data).join(CollectionRun, Snapshot.run_id == CollectionRun.id)
+        .where(CollectionRun.connector_id == connector_id).order_by(CollectionRun.id.desc()))
+    out: dict = {}
+    for key, data in rows:
+        out.setdefault(key, data)
+    return out
+
+
+def cross_facts(db: Session, row: Connector) -> dict[str, dict | None]:
+    """Latest facts of every other source kind this connector's checks read from."""
+    kinds = {k for ch in load_checks().values() if ch.kind == row.kind for k in ch.cross}
+    out: dict[str, dict | None] = {}
+    for kind in kinds:
+        other = db.scalar(select(Connector).where(Connector.kind == kind, Connector.enabled.is_(True))
+                          .order_by(Connector.id).limit(1))
+        out[kind] = latest_facts(db, other.id) if other else None
+    return out
+
+
+def reevaluate_dependents(db: Session, row: Connector) -> None:
+    """Fresh data from this source changes the verdict of other sources' cross checks (e.g. Entra → GitLab leavers)."""
+    dependent = {ch.id for ch in load_checks().values() if row.kind in ch.cross and ch.kind != row.kind}
+    if not dependent:
+        return
+    kinds = {load_checks()[cid].kind for cid in dependent}
+    for other in db.scalars(select(Connector).where(Connector.kind.in_(kinds), Connector.enabled.is_(True))):
+        last_run = db.scalar(select(CollectionRun.id).where(CollectionRun.connector_id == other.id,
+                                                            CollectionRun.status != "error")
+                             .order_by(CollectionRun.id.desc()).limit(1))
+        if last_run is None:
+            continue
+        results = evaluate_checks(other, latest_facts(db, other.id), {}, {}, cross_facts(db, other), only=dependent)
+        record_results(db, other, last_run, results)
     db.flush()
 
 
@@ -135,21 +202,33 @@ def _insert_events(db: Session, row: Connector, c: Collected) -> list[Event]:
     return fresh
 
 
-def evaluate_checks(row: Connector, facts: dict, unavailable: dict, errors: dict) -> dict[str, Outcome]:
+def evaluate_checks(row: Connector, facts: dict, unavailable: dict, errors: dict,
+                    cross: dict[str, dict | None] | None = None, only: set[str] | None = None) -> dict[str, Outcome]:
     out: dict[str, Outcome] = {}
     thresholds = (row.config or {}).get("thresholds") or {}
+    cross = cross or {}
     for check in load_checks().values():
-        if check.kind != row.kind:
+        if check.kind != row.kind or (only is not None and check.id not in only):
             continue
         missing = [k for k in check.requires if k not in facts]
-        if missing:
-            reasons = {k: unavailable.get(k) or errors.get(k) or "not collected" for k in missing}
+        reasons = {k: unavailable.get(k) or errors.get(k) or "not collected" for k in missing}
+        merged = dict(facts)
+        for kind, keys in check.cross.items():
+            other = cross.get(kind)
+            for k in keys:
+                if other is None:
+                    reasons[k] = f"needs a {kind} data source"
+                elif k not in other:
+                    reasons[k] = f"not yet collected by the {kind} data source"
+                else:
+                    merged[k] = other[k]
+        if reasons:
             status = "error" if any(k in errors for k in missing) else "not_available"
             out[check.id] = Outcome(status, {"missing": reasons})
             continue
         params = {**check.defaults, **(row.config or {}), **thresholds.get(check.id, {})}
         try:
-            out[check.id] = check.fn(facts, params)
+            out[check.id] = check.fn(merged, params)
         except Exception as e:
             logger.exception(f"check {check.id} failed")
             out[check.id] = Outcome("error", {"error": f"{type(e).__name__}: {e}"})
@@ -179,9 +258,11 @@ def _upsert_alert(db: Session, row: Connector, d) -> int:
     existing = db.scalar(select(Alert).where(Alert.dedup_key == d.dedup_key))
     detail = {**d.detail, "title_zh": d.title_zh}
     if existing is None:
-        db.add(Alert(connector_id=row.id, rule_id=d.rule_id, severity=d.severity, title=d.title[:300],
-                     actor=d.actor[:200], detail=detail, occurred_at=d.occurred_at, dedup_key=d.dedup_key))
+        alert = Alert(connector_id=row.id, rule_id=d.rule_id, severity=d.severity, title=d.title[:300],
+                      actor=d.actor[:200], detail=detail, occurred_at=d.occurred_at, dedup_key=d.dedup_key)
+        db.add(alert)
         db.flush()
+        db.info.setdefault("new_alert_ids", []).append(alert.id)
         return 1
     # Same window, more activity: refresh the numbers, never downgrade, keep the triage state.
     existing.detail = detail

@@ -10,7 +10,13 @@ from typing import Any
 
 STATUSES = ("pass", "partial", "fail", "not_available", "error")
 SEVERITIES = ("low", "medium", "high", "critical")
-MAX_ITEMS = 200  # failing items kept per result; the count is always exact
+MAX_ITEMS = 200  # failing items stored on a result for display; findings keep them all
+
+# Optional keys on an item, used when it becomes a tracked finding:
+#   _key       stable identity across runs (default: derived from the item's identifying fields)
+#   _severity  overrides the check's severity for this item (e.g. a CVE's own severity)
+#   _exploited True puts it on the shortest remediation clock
+#   _label     one-line description for lists and reports
 
 
 @dataclass
@@ -36,6 +42,9 @@ class Check:
     requires: tuple[str, ...]  # fact keys; missing any -> not_available
     defaults: Mapping[str, Any]  # thresholds an operator can override per connector
     fn: Callable[[Mapping[str, Any], Mapping[str, Any]], Outcome]
+    # Facts this check also needs from another source, e.g. {"m365": ("entra.users",)}:
+    # GitLab leavers are judged against Entra. Read from that source's latest collection.
+    cross: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     def render_summary(self, lang: str, params: Mapping[str, Any]) -> str:
         template = self.summary.get(lang) or self.summary["en"]
@@ -49,13 +58,15 @@ REGISTRY: dict[str, Check] = {}
 
 
 def check(id: str, kind: str, *, title: dict, summary: dict, remediation: dict,
-          severity: str, requires: tuple[str, ...] | list[str], defaults: dict | None = None):
+          severity: str, requires: tuple[str, ...] | list[str], defaults: dict | None = None,
+          cross: dict[str, tuple[str, ...] | list[str]] | None = None):
     assert severity in SEVERITIES, severity
 
     def register(fn):
         assert id not in REGISTRY, f"duplicate check {id}"
         REGISTRY[id] = Check(id=id, kind=kind, title=title, summary=summary, remediation=remediation,
-                             severity=severity, requires=tuple(requires), defaults=defaults or {}, fn=fn)
+                             severity=severity, requires=tuple(requires), defaults=defaults or {}, fn=fn,
+                             cross={k: tuple(v) for k, v in (cross or {}).items()})
         return fn
     return register
 
@@ -72,10 +83,10 @@ def ratio_outcome(failing: list[dict], total: int, *, pass_at: float = 1.0, part
     else:
         status = "fail"
     return Outcome(status, {"failing": len(failing), "total": total, "percent": round(share * 100, 1), **extra},
-                   failing[:MAX_ITEMS])
+                   failing)
 
 
 def load_all() -> dict[str, Check]:
     """Import every check module so their decorators register."""
-    from govern.checks import archery, github, gitlab, m365  # noqa: F401
+    from govern.checks import archery, github, gitlab, m365, m365_security  # noqa: F401
     return REGISTRY

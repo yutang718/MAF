@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { ExclamationTriangleIcon } from '@heroicons/react/20/solid'
 import { useTranslation } from '../../i18n/context'
 import { useHealth, type ApiStatus } from '../../health/state'
@@ -27,6 +27,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     { name: t('nav.promptAnalysis'), to: '/prompt-injection' },
     { name: t('nav.piiScanner'), to: '/pii-detection' },
     { name: t('nav.compliance'), to: '/islamic-compliance' },
+    { name: t('nav.governance'), to: '/governance' },
   ]
 
   return (
@@ -101,8 +102,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 function ApiStatusBanner() {
   const { t } = useTranslation()
   const { status, error, recheck } = useHealth()
+  const { pathname } = useLocation()
   const [retrying, setRetrying] = useState(false)
   if (status !== 'offline' && status !== 'degraded') return null
+  // Governance pages don't use the guard models, so a model-loading problem isn't theirs to show.
+  if (status === 'degraded' && pathname.startsWith('/governance')) return null
 
   const offline = status === 'offline'
   const retry = async () => {

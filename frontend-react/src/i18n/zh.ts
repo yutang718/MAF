@@ -1,4 +1,7 @@
+import { governanceZh } from './governance'
+
 const zh: Record<string, string> = {
+  ...governanceZh,
   // ─── AppLayout ────────────────────────────────────────────────────────────────
   'nav.overview': '概览',
   'nav.promptAnalysis': '提示词分析',

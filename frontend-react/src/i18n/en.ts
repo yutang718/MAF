@@ -1,4 +1,7 @@
+import { governanceEn } from './governance'
+
 const en: Record<string, string> = {
+  ...governanceEn,
   // ─── AppLayout ────────────────────────────────────────────────────────────────
   'nav.overview': 'Overview',
   'nav.promptAnalysis': 'Prompt Analysis',

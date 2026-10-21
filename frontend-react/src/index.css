@@ -38,6 +38,30 @@
   * {
     @apply border-cyber-border;
   }
+  h1, h2, h3 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Browser surfaces carry the theme too, not the UA defaults. */
+  html {
+    accent-color: rgb(var(--c-accent));
+    caret-color: rgb(var(--c-accent));
+    scrollbar-color: rgb(var(--c-muted) / 0.35) transparent;
+  }
+  ::selection {
+    background-color: rgb(var(--c-accent) / 0.25);
+    color: rgb(var(--c-text));
+  }
+  a {
+    text-underline-offset: 0.2em;
+  }
+  /* Smooth the swap when the user changes theme. */
+  body, .panel, .panel-sm {
+    transition: background-color 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out;
+  }
   /* Tabular figures keep score columns from jittering as values change. */
   .font-mono {
     font-variant-numeric: tabular-nums;

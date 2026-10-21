@@ -175,13 +175,21 @@ class M365Connector(M365SecurityMixin, Connector):
         c.gather("purview.sensitivity_labels", lambda: [
             _pick(lbl, "id", "name", "isActive", "sensitivity")
             for lbl in self._pages(g, "/beta/security/informationProtection/sensitivityLabels")])
-        c.gather("purview.retention_labels", lambda: [
-            _pick(lbl, "id", "displayName", "retentionDuration", "actionAfterRetentionPeriod")
-            for lbl in self._pages(g, "/v1.0/security/labels/retentionLabels")])
+        c.gather("purview.retention_labels", self._retention_labels)
 
         self._security(c)
         self._new_alerts(c)
         return c
+
+    def _retention_labels(self) -> list[dict]:
+        try:
+            labels = self._pages(self.graph, "/v1.0/security/labels/retentionLabels")
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code >= 500:
+                # Seen repeatedly for app-only access to this endpoint; not something the tenant can fix.
+                raise SourceUnavailable(f"Graph answered {e.response.status_code} for retention labels") from e
+            raise
+        return [_pick(lbl, "id", "displayName", "retentionDuration", "actionAfterRetentionPeriod") for lbl in labels]
 
     def _users(self, c: Collected):
         def fetch():

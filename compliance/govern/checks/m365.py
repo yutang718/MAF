@@ -206,8 +206,9 @@ def open_high_incidents(facts, p):
     overdue = [i for i in high if (parse_time(i.get("createdDateTime")) or utcnow()) < cutoff]
     status = "fail" if overdue else ("partial" if high else "pass")
     return Outcome(status, {"overdue": len(overdue), "open": len(high), "sla_days": p["sla_days"]},
-                   [{"name": i.get("displayName"), "created": i.get("createdDateTime"),
-                     "assignedTo": i.get("assignedTo"), "url": i.get("incidentWebUrl")} for i in overdue])
+                   [{"_key": i.get("id"), "_since": i.get("createdDateTime"), "name": i.get("displayName"),
+                     "created": i.get("createdDateTime"), "assignedTo": i.get("assignedTo"),
+                     "url": i.get("incidentWebUrl")} for i in overdue])
 
 
 @check("m365.data_loss_alerts", "m365", severity="high", requires=["defender.alerts_open"],
@@ -221,8 +222,9 @@ def data_loss_alerts(facts, p):
     high = [a for a in alerts if a.get("severity") == "high"]
     status = "fail" if high else ("partial" if alerts else "pass")
     return Outcome(status, {"high": len(high), "other": len(alerts) - len(high)},
-                   [{"name": a.get("title"), "severity": a.get("severity"), "created": a.get("createdDateTime"),
-                     "url": a.get("alertWebUrl")} for a in alerts])
+                   [{"_key": a.get("id"), "_since": a.get("createdDateTime"), "name": a.get("title"),
+                     "severity": a.get("severity"), "created": a.get("createdDateTime"), "url": a.get("alertWebUrl")}
+                    for a in alerts])
 
 
 @check("m365.defender_sensor_health", "m365", severity="high", requires=["defender.machines"],

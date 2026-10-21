@@ -116,7 +116,7 @@ def test_unsupported_gitlab_version():
 # ─── M365 security collection ──────────────────────────────────────────────────
 
 def m365_security_collect(cursor=None, **overrides):
-    routes = {**m365_routes(), **fs.m365_security_routes(), **overrides}
+    routes = {**m365_routes(), **fs.m365_security_routes(), "/v1.0/users": {"value": fs.ENTRA_USERS}, **overrides}
     transport, calls = router(routes)
     conn = M365Connector({"tenant_id": "tenant-1", "client_id": "app", "break_glass_accounts": ["breakglass@evyd.com"]},
                          {"client_secret": "s"}, cursor, transport=transport, sleep=lambda s: None)
@@ -141,7 +141,9 @@ def test_m365_security_collection_and_checks():
     assert r["m365.asr_rules"].items[0]["device"] == "pc-alice"
     assert r["m365.end_of_support"].status == "fail"
     assert r["m365.external_sharing"].status == "fail"
-    assert [i["principal"] for i in r["m365.permanent_privileged_roles"].items] == ["dave@evyd.com"]
+    # Principals resolved from the user list first, then getByIds; break-glass excluded.
+    assert sorted(i["principal"] for i in r["m365.permanent_privileged_roles"].items) == \
+        ["Legacy automation", "dave@evyd.com"]
     apps = {i["app"]: i["reason"] for i in r["m365.risky_app_registrations"].items}
     assert list(apps) == ["Mail sync tool"] and "Mail.ReadWrite" in apps["Mail sync tool"]
     assert r["m365.risky_app_registrations"].status == "fail"
@@ -346,3 +348,33 @@ def test_critical_alerts_are_pushed(db):
     transport = httpx.MockTransport(lambda req: sent.append(json.loads(req.content)) or httpx.Response(202))
     assert notify.push_new_critical(db, [hi.id, crit.id], transport) == 1
     assert "离职人员" in json.dumps(sent[0], ensure_ascii=False)
+
+
+def test_retention_labels_server_error_is_unavailable():
+    c, _ = m365_security_collect(**{"/v1.0/security/labels/retentionLabels": (500, {"error": {"message": "boom"}})})
+    assert "purview.retention_labels" in c.unavailable and "purview.retention_labels" not in c.errors
+
+
+def test_alert_findings_start_the_clock_when_the_alert_was_raised(db):
+    c = Connector(kind="m365", name="m", config={})
+    db.add(c)
+    db.commit()
+    old = {"id": "al1", "title": "DLP", "severity": "high", "serviceSource": "dataLossPrevention",
+           "createdDateTime": fs.ago(10)}
+    run_connector(db, c.id, lambda row: Fake(Collected(facts={"defender.alerts_open": [old]})))
+    f = db.scalar(select(Finding).where(Finding.check_id == "m365.dlp_alert_sla"))
+    assert (fs.NOW - f.first_seen).days == 10
+    latest = db.scalar(select(CheckResult).where(CheckResult.check_id == "m365.dlp_alert_sla")
+                       .order_by(CheckResult.id.desc()))
+    assert latest.status == "fail"  # high DLP alerts must be triaged within 1 day
+    keys = {x.key for x in db.scalars(select(Finding).where(Finding.check_id == "m365.data_loss_alerts"))}
+    assert keys == {"al1"}
+
+
+def test_missing_licence_reported_as_400_is_unavailable():
+    no_p2 = (400, {"error": {"code": "AadPremiumLicenseRequired",
+                             "message": "The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license."}})
+    c, _ = m365_security_collect(**{"/v1.0/roleManagement/directory/roleAssignmentScheduleInstances": no_p2})
+    assert "entra.pim_active" in c.unavailable and "entra.pim_active" not in c.errors
+    r = grade("m365", c.facts)["m365.permanent_privileged_roles"]
+    assert r.status in ("pass", "fail") and "PIM not available" in r.params["pim_note"]

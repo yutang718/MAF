@@ -164,11 +164,14 @@ def m365_security_routes() -> dict:
                                             "isResharingByExternalUsersEnabled": True},
         "/v1.0/roleManagement/directory/roleDefinitions": {"value": [
             {"id": "r-ga", "displayName": "Global Administrator", "templateId": "62e90394-69f5-4237-9190-012177145e10"}]},
-        "/v1.0/roleManagement/directory/roleAssignmentScheduleInstances": {"value": [
-            {"roleDefinitionId": "r-ga", "assignmentType": "Assigned", "endDateTime": None,
-             "principal": {"userPrincipalName": "dave@evyd.com", "@odata.type": "#microsoft.graph.user"}},
-            {"roleDefinitionId": "r-ga", "assignmentType": "Assigned", "endDateTime": None,
-             "principal": {"userPrincipalName": "breakglass@evyd.com", "@odata.type": "#microsoft.graph.user"}}]},
+        "/v1.0/roleManagement/directory/roleAssignmentScheduleInstances": lambda req: (
+            (400, {"error": {"message": "$expand not supported"}}) if "expand" in str(req.url) else {"value": [
+                {"roleDefinitionId": "r-ga", "assignmentType": "Assigned", "endDateTime": None, "principalId": "d4"},
+                {"roleDefinitionId": "r-ga", "assignmentType": "Assigned", "endDateTime": None, "principalId": "bg"},
+                {"roleDefinitionId": "r-ga", "assignmentType": "Assigned", "endDateTime": None, "principalId": "sp1"}]}),
+        "/v1.0/directoryObjects/getByIds": {"value": [
+            {"id": "bg", "userPrincipalName": "breakglass@evyd.com", "@odata.type": "#microsoft.graph.user"},
+            {"id": "sp1", "displayName": "Legacy automation", "@odata.type": "#microsoft.graph.servicePrincipal"}]},
         "/v1.0/servicePrincipals": lambda req: {"value": [{"appRoles": [
             {"id": "role-mail", "value": "Mail.ReadWrite"}, {"id": "role-user", "value": "User.Read.All"}]}]},
         "/v1.0/applications": {"value": [

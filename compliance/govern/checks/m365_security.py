@@ -193,6 +193,7 @@ def high_risk_devices(facts, p):
 def dlp_alert_sla(facts, p):
     items = [{"_key": a.get("id"), "_severity": a.get("severity") if a.get("severity") in SEVERITY else "medium",
               "_due_days": DLP_TRIAGE_DAYS.get(a.get("severity"), 3), "_label": a.get("title"),
+              "_since": a.get("createdDateTime"),
               "title": a.get("title"), "source": a.get("serviceSource"), "created": a.get("createdDateTime"),
               "url": a.get("alertWebUrl")}
              for a in facts["defender.alerts_open"]

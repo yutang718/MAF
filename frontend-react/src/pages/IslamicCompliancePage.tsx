@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { detectIslamic, getRules } from '../api/islamic'
 import type { IslamicDetectionResult, IslamicRulesResponse } from '../types/islamic'
 import { useTranslation } from '../i18n/context'
+import { Tabs, TabPanel } from '../components/Tabs'
+import { errorMessage } from '../api/client'
 
 const samples = [
   'What is the best approach to Islamic finance and investment?',
@@ -12,16 +14,9 @@ const samples = [
 
 export default function IslamicCompliancePage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<string>(t('islamic.tab.check'))
+  const [activeTab, setActiveTab] = useState(0)
 
   const tabs = [t('islamic.tab.check'), t('islamic.tab.rules')]
-
-  const tabIndex = tabs.indexOf(activeTab)
-  const effectiveIndex = tabIndex === -1 ? 0 : tabIndex
-  const effectiveTab = tabs[effectiveIndex]
-  if (tabIndex === -1 && activeTab !== effectiveTab) {
-    setTimeout(() => setActiveTab(effectiveTab), 0)
-  }
 
   return (
     <div className="space-y-5">
@@ -32,17 +27,10 @@ export default function IslamicCompliancePage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-1 p-1 bg-cyber-surface/40 rounded-lg w-fit border border-cyber-border/40">
-        {tabs.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`tab-btn ${activeTab === tab ? 'tab-btn-active' : ''}`}>
-            {tab}
-          </button>
-        ))}
-      </div>
+      <Tabs id="islamic" labels={tabs} active={activeTab} onChange={setActiveTab} className="w-fit" />
 
-      {effectiveIndex === 0 && <ComplianceCheck />}
-      {effectiveIndex === 1 && <RuleConfig />}
+      <TabPanel id="islamic" index={0} active={activeTab}><ComplianceCheck /></TabPanel>
+      <TabPanel id="islamic" index={1} active={activeTab}><RuleConfig /></TabPanel>
     </div>
   )
 }
@@ -58,7 +46,7 @@ function ComplianceCheck() {
     if (!text.trim()) return
     setLoading(true); setError(''); setResult(null)
     try { setResult(await detectIslamic(text)) }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed') }
+    catch (e: unknown) { setError(errorMessage(e, t)) }
     setLoading(false)
   }
 
@@ -75,7 +63,7 @@ function ComplianceCheck() {
           <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('islamic.sampleInputs')}</span>
           {samples.map((s, i) => (
             <button key={i} onClick={() => setText(s)}
-              className="block w-full text-left text-sm text-cyber-muted/70 bg-cyber-surface-light border border-cyber-border/40 rounded-lg px-3 py-2 hover:border-cyber-accent/30 hover:text-cyber-text transition-all truncate">
+              className="block w-full text-left text-sm text-cyber-muted bg-cyber-surface-light border border-cyber-border/40 rounded-lg px-3 py-2 hover:border-cyber-accent/30 hover:text-cyber-text transition-all truncate">
               {s}
             </button>
           ))}
@@ -83,7 +71,7 @@ function ComplianceCheck() {
       </div>
 
       <div className="col-span-2">
-        {error && <div className="panel border-cyber-danger/20 text-sm text-cyber-danger">{error}</div>}
+        {error && <div className="panel border-cyber-danger/30 text-sm text-cyber-danger" role="alert">{error}</div>}
         {result ? <ComplianceResult result={result} /> : !error && (
           <div className="panel h-full flex items-center justify-center text-sm text-cyber-muted">{t('islamic.awaiting')}</div>
         )}
@@ -148,7 +136,7 @@ function RuleConfig() {
   return (
     <div className="panel">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-cyber-text">{t('islamic.activeRuleSet')}</h3>
+        <h2 className="text-sm font-semibold text-cyber-text">{t('islamic.activeRuleSet')}</h2>
         <span className="badge-info">{t('islamic.language')}: {rules.language}</span>
       </div>
       <pre className="text-sm text-cyber-muted font-mono bg-cyber-bg rounded-lg p-4 overflow-auto max-h-[400px] border border-cyber-border/40">

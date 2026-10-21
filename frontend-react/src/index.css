@@ -5,25 +5,25 @@
 /*
  * Boot values only. ThemeProvider (src/theme/context.tsx) overwrites every one
  * of these on <html> at mount, so this block just prevents a flash of unstyled
- * colour before React hydrates. Keep it in sync with THEMES[0] in tokens.ts.
+ * colour before React hydrates. Keep it in sync with DEFAULT_THEME in tokens.ts.
  */
 :root {
-  --c-bg: 6 8 13;
-  --c-surface: 12 16 24;
-  --c-surface-light: 20 26 38;
-  --c-border: 28 36 54;
-  --c-accent: 56 189 248;
+  --c-bg: 11 18 32;
+  --c-surface: 17 28 49;
+  --c-surface-light: 26 40 66;
+  --c-border: 30 42 66;
+  --c-accent: 96 165 250;
   --c-green: 52 211 153;
   --c-purple: 167 139 250;
   --c-warning: 251 191 36;
   --c-danger: 248 113 113;
   --c-safe: 52 211 153;
-  --c-text: 237 240 245;
-  --c-muted: 122 130 148;
-  --grid-alpha: 0.03;
-  --glow-alpha: 1;
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --c-text: 232 237 247;
+  --c-muted: 132 148 174;
+  --grid-alpha: 0;
+  --glow-alpha: 0;
+  --font-sans: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', 'Noto Sans SC', ui-monospace, monospace;
 }
 
 @layer base {
@@ -180,15 +180,13 @@
     box-shadow: 0 0 12px rgb(var(--c-accent) / calc(0.1 * var(--glow-alpha)));
   }
 
+  /* Solid fill: the one action per screen must not read as disabled. Text uses the
+     ground colour, which every theme keeps at >=4.5:1 against its accent. */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-[15px] font-semibold
-           bg-cyber-accent/[0.08] border border-cyber-accent/30 text-cyber-accent rounded-lg
-           hover:bg-cyber-accent/[0.14] hover:border-cyber-accent/50 transition-all duration-150
+           bg-cyber-accent border border-cyber-accent text-cyber-bg rounded-lg
+           hover:bg-cyber-accent/90 active:bg-cyber-accent/80 transition-colors duration-150
            cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed;
-    box-shadow: 0 0 15px rgb(var(--c-accent) / calc(0.05 * var(--glow-alpha)));
-  }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: 0 0 20px rgb(var(--c-accent) / calc(0.15 * var(--glow-alpha)));
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-[15px] font-medium
@@ -199,7 +197,7 @@
   .input-field {
     @apply w-full bg-cyber-bg/80 border border-cyber-border/80 rounded-lg px-4 py-3
            text-[15px] text-cyber-text font-mono leading-relaxed
-           placeholder:text-cyber-muted/50
+           placeholder:text-cyber-muted
            focus:outline-none focus:border-cyber-accent/40 focus:ring-1 focus:ring-cyber-accent/20
            transition-all duration-150;
   }

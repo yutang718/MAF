@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { detectPII } from '../api/pii'
 import type { PIIDetectionResult } from '../types/pii'
 import { useTranslation } from '../i18n/context'
+import { errorMessage } from '../api/client'
 
 const samples = [
   'My name is Ahmad bin Abdullah and my IC is 00-123456. Email: ahmad@gmail.com',
@@ -20,7 +21,7 @@ export default function PIIDetectionPage() {
     if (!text.trim()) return
     setLoading(true); setError(''); setResult(null)
     try { setResult(await detectPII(text)) }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed') }
+    catch (e: unknown) { setError(errorMessage(e, t)) }
     setLoading(false)
   }
 
@@ -48,7 +49,7 @@ export default function PIIDetectionPage() {
             <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('pii.sampleInputs')}</span>
             {samples.map((s, i) => (
               <button key={i} onClick={() => setText(s)}
-                className="block w-full text-left text-sm text-cyber-muted/70 bg-cyber-surface-light border border-cyber-border/40 rounded-lg px-3 py-2 hover:border-cyber-accent/30 hover:text-cyber-text transition-all truncate">
+                className="block w-full text-left text-sm text-cyber-muted bg-cyber-surface-light border border-cyber-border/40 rounded-lg px-3 py-2 hover:border-cyber-accent/30 hover:text-cyber-text transition-all truncate">
                 {s}
               </button>
             ))}
@@ -57,7 +58,7 @@ export default function PIIDetectionPage() {
 
         {/* Result */}
         <div className="col-span-2">
-          {error && <div className="panel border-cyber-danger/20 text-sm text-cyber-danger">{error}</div>}
+          {error && <div className="panel border-cyber-danger/30 text-sm text-cyber-danger" role="alert">{error}</div>}
           {result ? <PIIResult result={result} /> : !error && (
             <div className="panel h-full flex items-center justify-center text-sm text-cyber-muted">{t('pii.awaiting')}</div>
           )}

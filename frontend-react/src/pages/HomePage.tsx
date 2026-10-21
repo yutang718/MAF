@@ -1,10 +1,29 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from '../i18n/context'
+import { useHealth } from '../health/state'
 import { useMafGuardName } from '../utils/mafGuardVersion'
 
 export default function HomePage() {
   const { t } = useTranslation()
+  const { status, health } = useHealth()
+  const statusView = {
+    checking: { dot: 'bg-cyber-muted', text: 'text-cyber-muted', label: t('home.statusChecking') },
+    online: { dot: 'bg-cyber-safe', text: 'text-cyber-safe', label: t('nav.online') },
+    degraded: { dot: 'bg-cyber-warning', text: 'text-cyber-warning', label: t('home.statusDegraded') },
+    offline: { dot: 'bg-cyber-danger', text: 'text-cyber-danger', label: t('home.statusOffline') },
+  }[status]
+  const { lang } = useTranslation()
+  const { checkedAt } = useHealth()
+  const mafName = useMafGuardName()
+  const modelsLoaded = health?.components.guard_models.models_count
+  const modelNames: Record<string, string> = {
+    proventra: 'Proventra mDeBERTa v3', modernguard: 'ModernGuard-1', wolfdefender: 'Wolf Defender v2', mafguard: mafName,
+  }
+  const loadedModels = (health?.components.guard_models.loaded_models ?? []).map(k => modelNames[k] ?? k)
+  const pii = health?.components.pii_detector
+  const checkedTime = checkedAt?.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' }) ?? ''
+  const lastRun = lastBenchmarkRun()
 
   const modules = [
     {
@@ -37,44 +56,43 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="space-y-8 bg-grid min-h-[calc(100vh-3.5rem)]">
-      {/* Hero */}
-      <div className="border-gradient rounded-xl">
-        <div className="panel bg-cyber-surface/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-extrabold text-cyber-text text-glow">{t('home.title')}</h1>
-              <p className="text-base text-cyber-muted mt-3 max-w-2xl leading-relaxed">
-                {t('home.subtitle')}
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-cyber-muted uppercase tracking-widest">{t('home.systemStatus')}</div>
-              <div className="flex items-center gap-2 mt-1 justify-end">
-                <span className="w-2.5 h-2.5 rounded-full bg-cyber-green animate-pulse-glow" />
-                <span className="text-sm text-cyber-green font-semibold">{t('home.allOperational')}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <h1 className="text-2xl font-bold text-cyber-text">{t('home.title')}</h1>
 
-      {/* Live Stats Row */}
-      <div className="grid grid-cols-6 gap-3">
-        <AnimatedStat value={3} label={t('home.activeModels')} suffix="" />
-        <AnimatedStat value={100} label={t('home.languages')} suffix="+" />
-        <AnimatedStat value={99.9} label={t('home.jailbreakTPR')} suffix="%" decimal />
-        <AnimatedStat value={30} label={t('home.testSamples')} suffix="" />
-        <AnimatedStat value={45} label={t('home.avgLatency')} suffix="ms" />
-        <AnimatedStat value={8} label={t('home.piiEntities')} suffix="+" />
-      </div>
+      {/* What an operator checks first: is it up, what is loaded, what ran last */}
+      <section aria-labelledby="ops-heading" className="panel">
+        <h2 id="ops-heading" className="text-sm font-semibold text-cyber-text mb-4">{t('home.ops.title')}</h2>
+        <dl className="grid grid-cols-4 gap-6">
+          <OpsItem label={t('home.ops.api')}
+            sub={health ? t('home.ops.apiSub', { version: health.version, time: checkedTime }) : status === 'offline' ? t('home.ops.apiDown', { time: checkedTime }) : ''}>
+            <span className="inline-flex items-center gap-2" role="status">
+              <span className={`w-2.5 h-2.5 rounded-full ${statusView.dot}`} aria-hidden="true" />
+              <span className={statusView.text}>{statusView.label}</span>
+            </span>
+          </OpsItem>
+          <OpsItem label={t('home.ops.models')}
+            sub={loadedModels.length ? loadedModels.join(' · ') : health ? t('home.ops.noneLoaded') : t('home.ops.unknown')}>
+            <span className="font-mono">{modelsLoaded ?? '—'}</span>
+          </OpsItem>
+          <OpsItem label={t('home.ops.pii')}
+            sub={pii ? t('home.ops.piiSub', { total: pii.rules_count }) : t('home.ops.unknown')}>
+            <span className="font-mono">{pii?.rules_enabled ?? '—'}</span>
+          </OpsItem>
+          <OpsItem label={t('home.ops.lastRun')}
+            sub={lastRun ? t('home.ops.lastRunSub', { status: lastRun.status, models: lastRun.models.length }) : t('home.ops.noRuns')}>
+            {lastRun
+              ? <Link to="/prompt-injection" className="text-cyber-accent hover:underline break-all">{lastRun.dataset_id}</Link>
+              : <span className="text-cyber-muted">—</span>}
+          </OpsItem>
+        </dl>
+      </section>
 
       {/* Module Cards */}
       <div className="grid grid-cols-3 gap-5">
         {modules.map((m) => (
           <Link key={m.to} to={m.to}
             className={`panel-sm group transition-all duration-300 ${m.accent} ${m.glow}`}>
-            <h3 className="text-lg font-bold text-cyber-text mb-2">{m.name}</h3>
+            <h2 className="text-lg font-bold text-cyber-text mb-2">{m.name}</h2>
             <p className="text-sm text-cyber-muted leading-relaxed mb-4">{m.desc}</p>
             <div className="grid grid-cols-2 gap-3">
               {m.statKeys.map((key) => (
@@ -102,7 +120,6 @@ function BenchmarkSection({ t }: { t: (key: string) => string }) {
     <div className="panel">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-bold text-cyber-text">{t('home.benchmarks')}</h2>
-        <span className="badge-info">{t('home.modelsActive')}</span>
       </div>
       <div className="grid grid-cols-4 gap-5">
         <BenchmarkCard
@@ -190,36 +207,6 @@ function TechStackSection({ t }: { t: (key: string) => string }) {
   )
 }
 
-function AnimatedStat({ value, label, suffix, decimal }: { value: number; label: string; suffix: string; decimal?: boolean }) {
-  const [display, setDisplay] = useState(0)
-
-  useEffect(() => {
-    let start = 0
-    const end = value
-    const duration = 1200
-    const steps = 40
-    const increment = end / steps
-    const timer = setInterval(() => {
-      start += increment
-      if (start >= end) {
-        setDisplay(end)
-        clearInterval(timer)
-      } else {
-        setDisplay(start)
-      }
-    }, duration / steps)
-    return () => clearInterval(timer)
-  }, [value])
-
-  return (
-    <div className="stat-card group">
-      <div className="stat-value text-glow">
-        {decimal ? display.toFixed(1) : Math.round(display)}{suffix}
-      </div>
-      <div className="stat-label">{label}</div>
-    </div>
-  )
-}
 
 function BenchmarkCard({ name, metrics, meta }: {
   name: string; metrics: { label: string; value: number; color: string }[]; meta: string
@@ -227,7 +214,7 @@ function BenchmarkCard({ name, metrics, meta }: {
   return (
     <div className="panel-sm space-y-4">
       <div>
-        <h4 className="text-base font-bold text-cyber-text">{name}</h4>
+        <h3 className="text-base font-bold text-cyber-text">{name}</h3>
         <p className="text-xs text-cyber-muted mt-0.5">{meta}</p>
       </div>
       <div className="space-y-3">
@@ -254,4 +241,25 @@ function Row({ cells }: { cells: string[] }) {
       {cells.map((c, i) => <td key={i} className="table-cell">{c}</td>)}
     </tr>
   )
+}
+
+function OpsItem({ label, sub, children }: { label: string; sub: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-cyber-muted">{label}</dt>
+      <dd className="mt-1.5 text-lg font-semibold text-cyber-text">{children}</dd>
+      {sub && <dd className="mt-1 text-xs text-cyber-muted leading-snug">{sub}</dd>}
+    </div>
+  )
+}
+
+/** Most recent run the Benchmark tab saved in this browser, if any. */
+function lastBenchmarkRun(): { dataset_id: string; status: string; models: string[] } | null {
+  try {
+    const raw = localStorage.getItem('maf_benchmark_state')
+    const run = raw ? JSON.parse(raw)?.runs?.[0] : null
+    return run?.dataset_id ? run : null
+  } catch {
+    return null
+  }
 }

@@ -1,10 +1,26 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
+import { ExclamationTriangleIcon } from '@heroicons/react/20/solid'
 import { useTranslation } from '../../i18n/context'
+import { useHealth, type ApiStatus } from '../../health/state'
 import AppearanceMenu from './AppearanceMenu'
+
+const STATUS_STYLE: Record<ApiStatus, { dot: string; text: string; label: string }> = {
+  checking: { dot: 'bg-cyber-muted', text: 'text-cyber-muted', label: 'nav.checking' },
+  online: { dot: 'bg-cyber-safe', text: 'text-cyber-safe', label: 'nav.online' },
+  degraded: { dot: 'bg-cyber-warning', text: 'text-cyber-warning', label: 'nav.degraded' },
+  offline: { dot: 'bg-cyber-danger', text: 'text-cyber-danger', label: 'nav.offline' },
+}
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useTranslation()
+  const { status, health, checkedAt } = useHealth()
+  const style = STATUS_STYLE[status]
+  const time = checkedAt?.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) ?? ''
+  const statusTitle = status === 'offline'
+    ? t('nav.statusTitleOffline', { time })
+    : health ? t('nav.statusTitle', { version: health.version, time }) : undefined
+  const modelsLoaded = health?.components.guard_models.models_count
 
   const navigation = [
     { name: t('nav.overview'), to: '/' },
@@ -14,7 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   ]
 
   return (
-    <div className="min-h-screen bg-cyber-bg flex flex-col">
+    <div className="min-h-screen bg-cyber-bg bg-grid flex flex-col">
       {/* Top Nav */}
       <header className="sticky top-0 z-50 border-b border-cyber-border/60 bg-cyber-bg/90 backdrop-blur-xl">
         <div className="max-w-[1280px] mx-auto px-6 h-14 flex items-center justify-between">
@@ -43,17 +59,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </nav>
           </div>
 
-          {/* Right side - live metrics */}
+          {/* Right side: status read from the health endpoint, never assumed */}
           <div className="flex items-center gap-5">
-            <div className="flex items-center gap-4 text-xs font-mono">
-              <span className="text-cyber-muted">{t('nav.models')}: <span className="text-cyber-text font-semibold">4</span></span>
-              <span className="text-cyber-muted">{t('nav.lang')}: <span className="text-cyber-text font-semibold">100+</span></span>
-              <span className="text-cyber-muted">{t('nav.uptime')}: <span className="text-cyber-green font-semibold">99.9%</span></span>
-            </div>
+            <span className="text-xs text-cyber-muted whitespace-nowrap">
+              {t('nav.models')}: <span className="font-mono text-cyber-text font-semibold">{modelsLoaded ?? '—'}</span>
+            </span>
             <div className="h-4 w-px bg-cyber-border/60" />
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse-glow" />
-              <span className="text-xs text-cyber-green font-medium">{t('nav.online')}</span>
+            <div className="flex items-center gap-2 whitespace-nowrap" title={statusTitle} role="status">
+              <span className={`w-2 h-2 rounded-full ${style.dot}`} aria-hidden="true" />
+              <span className={`text-xs font-medium ${style.text}`}>{t(style.label)}</span>
             </div>
             <div className="h-4 w-px bg-cyber-border/60" />
             {/* Language Toggle */}
@@ -72,9 +86,52 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Content */}
       <main className="flex-1">
         <div className="max-w-[1280px] mx-auto px-6 py-8">
+          <ApiStatusBanner />
           {children}
         </div>
       </main>
+    </div>
+  )
+}
+
+/**
+ * One explanation for a down or half-loaded backend, so pages don't each repeat
+ * the same failure once per model.
+ */
+function ApiStatusBanner() {
+  const { t } = useTranslation()
+  const { status, error, recheck } = useHealth()
+  const [retrying, setRetrying] = useState(false)
+  if (status !== 'offline' && status !== 'degraded') return null
+
+  const offline = status === 'offline'
+  const retry = async () => {
+    setRetrying(true)
+    await recheck()
+    setRetrying(false)
+  }
+
+  return (
+    <div
+      role="alert"
+      className={`mb-6 flex items-start gap-3 rounded-lg border px-4 py-3
+                  ${offline ? 'border-cyber-danger/40 bg-cyber-danger/[0.06]' : 'border-cyber-warning/40 bg-cyber-warning/[0.06]'}`}
+    >
+      <ExclamationTriangleIcon
+        className={`w-5 h-5 mt-0.5 flex-shrink-0 ${offline ? 'text-cyber-danger' : 'text-cyber-warning'}`}
+        aria-hidden="true"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-semibold text-cyber-text">
+          {t(offline ? 'status.offlineTitle' : 'status.degradedTitle')}
+        </p>
+        <p className="text-sm text-cyber-muted mt-0.5 leading-relaxed">
+          {offline ? t('status.offlineBody', { reason: error ?? '' }) : t('status.degradedBody')}
+        </p>
+      </div>
+      <button onClick={retry} disabled={retrying} className="btn-ghost text-sm px-3 py-1.5 flex-shrink-0">
+        {t(retrying ? 'status.retrying' : 'status.retry')}
+      </button>
     </div>
   )
 }

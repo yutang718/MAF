@@ -45,8 +45,8 @@ export const THEMES: Theme[] = [
     name: 'Cyber',
     nameZh: '赛博',
     font: 'jakarta',
-    scene: "Demo stage, dark room: the brand's neon identity.",
-    sceneZh: '演示舞台、暗场：品牌的霓虹识别。',
+    scene: "Demos and presentations: the brand's neon identity.",
+    sceneZh: '演示与汇报：品牌的霓虹识别。',
     mode: 'dark',
     swatch: ['#06080d', '#0c1018', '#38bdf8'],
     colors: {
@@ -71,8 +71,8 @@ export const THEMES: Theme[] = [
     name: 'Midnight',
     nameZh: '午夜蓝',
     font: 'inter',
-    scene: 'Late analysis at a desk: soft blue, low glare.',
-    sceneZh: '深夜伏案分析：柔和蓝调、低眩光。',
+    scene: 'Daily operator work: brand blue, no glow, low glare.',
+    sceneZh: '日常运维工作：品牌蓝、无光晕、低眩光。',
     mode: 'dark',
     swatch: ['#0b1220', '#111c31', '#60a5fa'],
     colors: {
@@ -89,8 +89,8 @@ export const THEMES: Theme[] = [
       text: '232 237 247',
       muted: '132 148 174',
     },
-    gridAlpha: 0.04,
-    glowAlpha: 0.6,
+    gridAlpha: 0,
+    glowAlpha: 0,
   },
   {
     id: 'nord',
@@ -113,7 +113,7 @@ export const THEMES: Theme[] = [
       danger: '191 97 106',
       safe: '163 190 140',
       text: '236 239 244',
-      muted: '141 153 170',
+      muted: '148 160 177',
     },
     gridAlpha: 0.035,
     glowAlpha: 0.35,
@@ -429,5 +429,6 @@ export const CJK_FONT = {
   href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap',
 }
 
-export const DEFAULT_THEME = 'cyber'
+/** Calm working theme by default; Cyber stays in the picker as the demo look. */
+export const DEFAULT_THEME = 'midnight'
 export const DEFAULT_FONT = THEME_FONT

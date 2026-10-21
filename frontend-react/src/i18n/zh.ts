@@ -10,6 +10,8 @@ const zh: Record<string, string> = {
   'appearance.dark': '深色',
   'appearance.light': '浅色',
   'appearance.matchTheme': '跟随主题',
+  'appearance.cjkFont': '中文字体',
+  'appearance.cjkHint': '所有中文文字都使用这里选的字体，与主题和西文字体无关。',
   'appearance.hint': '每个主题自带专属字体，可在此另选覆盖；投影演示推荐「旷野」主题。',
   'nav.platformName': 'AI 安全平台',
   'nav.models': '模型',

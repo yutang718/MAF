@@ -1,4 +1,4 @@
-import type { FontPairing } from './tokens'
+import type { FontPairing, CJKFont } from './tokens'
 
 /**
  * Load just the glyphs needed to render the picker's labels in each pairing's
@@ -18,4 +18,21 @@ export function loadFontPreviews(fonts: FontPairing[], labels: string[] = []) {
     + Array.from(families).map(f => `family=${f.replace(/ /g, '+')}:wght@400;600`).join('&')
     + `&text=${encodeURIComponent(text)}&display=swap`
   document.head.appendChild(link)
+}
+
+/**
+ * Link every Chinese face so the picker can show each option in its own
+ * glyphs. The stylesheets are unicode-range split, so this fetches only the
+ * few characters the picker labels use.
+ */
+export function loadCjkPreviews(fonts: CJKFont[]) {
+  fonts.forEach(f => {
+    const id = `app-cjk-preview-${f.id}`
+    if (!f.href || document.getElementById(id)) return
+    const link = document.createElement('link')
+    link.id = id
+    link.rel = 'stylesheet'
+    link.href = f.href
+    document.head.appendChild(link)
+  })
 }

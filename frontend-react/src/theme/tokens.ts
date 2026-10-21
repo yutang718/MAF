@@ -423,11 +423,69 @@ export const FONTS: FontPairing[] = [
 /** Font id meaning "use the pairing the current theme was designed with". */
 export const THEME_FONT = 'theme'
 
-/** Chinese glyphs fall back to this face whatever the Latin pairing is. */
-export const CJK_FONT = {
-  family: "'Noto Sans SC'",
-  href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap',
+export interface CJKFont {
+  id: string
+  name: string
+  nameZh: string
+  /** CSS family list placed after the Latin face, so Chinese glyphs fall through to it */
+  family: string
+  /** Stylesheet split by unicode-range, so only glyphs on screen download; null = installed fonts */
+  href: string | null
+  mood: string
+  moodZh: string
 }
+
+/** Chinese typeface, chosen independently of the theme's Latin pairing. */
+export const CJK_FONTS: CJKFont[] = [
+  {
+    id: 'noto-sans',
+    name: 'Source Han Sans',
+    nameZh: '思源黑体',
+    family: "'Noto Sans SC'",
+    href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap',
+    mood: 'Neutral sans, all weights',
+    moodZh: '中性黑体，字重齐全',
+  },
+  {
+    id: 'wenkai',
+    name: 'LXGW WenKai',
+    nameZh: '霞鹜文楷',
+    // Screen edition, GB glyph forms: tuned for reading on displays
+    family: "'LXGW WenKai Screen'",
+    href: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaigbscreen.css',
+    mood: 'Warm kai, easy reading',
+    moodZh: '温润楷体，适合阅读',
+  },
+  {
+    id: 'noto-serif',
+    name: 'Source Han Serif',
+    nameZh: '思源宋体',
+    family: "'Noto Serif SC'",
+    href: 'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap',
+    mood: 'Classic serif, formal',
+    moodZh: '经典宋体，正式稳重',
+  },
+  {
+    id: 'xiaowei',
+    name: 'ZCOOL XiaoWei',
+    nameZh: '站酷小薇',
+    family: "'ZCOOL XiaoWei'",
+    href: 'https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap',
+    mood: 'Literary serif, one weight',
+    moodZh: '文艺宋体，单一字重',
+  },
+  {
+    id: 'system',
+    name: 'System',
+    nameZh: '系统字体',
+    family: "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei'",
+    href: null,
+    mood: 'PingFang / YaHei, no download',
+    moodZh: '苹方 / 微软雅黑，无需下载',
+  },
+]
+
+export const DEFAULT_CJK_FONT = 'noto-sans'
 
 /** Calm working theme by default; Cyber stays in the picker as the demo look. */
 export const DEFAULT_THEME = 'midnight'

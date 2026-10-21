@@ -10,6 +10,8 @@ const en: Record<string, string> = {
   'appearance.dark': 'Dark',
   'appearance.light': 'Light',
   'appearance.matchTheme': 'Match theme',
+  'appearance.cjkFont': 'Chinese typeface',
+  'appearance.cjkHint': 'Used for all Chinese text, whatever theme or typeface you pick.',
   'appearance.hint': 'Each theme ships with its own typeface. Pick another to override it; Field reads best on a projector.',
   'nav.platformName': 'AI Security Platform',
   'nav.models': 'Models',

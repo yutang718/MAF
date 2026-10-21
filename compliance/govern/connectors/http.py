@@ -78,9 +78,21 @@ def raise_for_source(resp: httpx.Response) -> None:
     """403/404 on a read means this tenant or token can't see it — not a control failure."""
     if resp.status_code in (401,):
         raise PermissionError(f"authentication rejected ({resp.status_code}): {_message(resp)}")
-    if resp.status_code in (402, 403, 404):
+    if resp.status_code in (402, 403, 404) or (resp.status_code == 400 and _licence_error(resp)):
         raise SourceUnavailable(f"HTTP {resp.status_code}: {_message(resp)}")
     resp.raise_for_status()
+
+
+# Graph reports a missing licence as 400 with one of these codes, not as 403.
+LICENCE_ERROR_CODES = {"AadPremiumLicenseRequired", "LicenseRequired", "Tenant_LicenseNotFound"}
+
+
+def _licence_error(resp: httpx.Response) -> bool:
+    try:
+        err = resp.json().get("error") or {}
+    except ValueError:
+        return False
+    return isinstance(err, dict) and (err.get("code") in LICENCE_ERROR_CODES or "licen" in str(err.get("message", "")).lower())
 
 
 def _message(resp: httpx.Response) -> str:

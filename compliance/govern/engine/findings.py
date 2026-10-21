@@ -63,10 +63,11 @@ def sync(db: Session, connector_id: int, check: Check, outcome: Outcome, now: da
     for key, item in current.items():
         f = existing.get(key)
         severity = item.get("_severity") or check.severity
+        since = _since(item, now)
         if f is None:
             db.add(Finding(connector_id=connector_id, check_id=check.id, key=key, label=item_label(item),
                            severity=severity, exploited=bool(item.get("_exploited")), data=_data(item),
-                           first_seen=now, last_seen=now))
+                           first_seen=since, last_seen=now))
             res.new += 1
             continue
         if f.resolved_at is not None:
@@ -75,6 +76,8 @@ def sync(db: Session, connector_id: int, check: Check, outcome: Outcome, now: da
             f.first_seen = now
             f.reopened += 1
             res.reopened += 1
+        elif since < f.first_seen and not f.reopened:
+            f.first_seen = since  # an earlier origin became known (e.g. findings stored before _since existed)
         f.last_seen = now
         f.label = item_label(item)
         f.severity = severity
@@ -87,6 +90,13 @@ def sync(db: Session, connector_id: int, check: Check, outcome: Outcome, now: da
     res.open = len(current)
     db.flush()
     return res
+
+
+def _since(item: dict, now: datetime) -> datetime:
+    """When the problem began, if the source says (an alert's creation time); never in the future."""
+    from govern.timeutil import parse_time
+    when = parse_time(item.get("_since"))
+    return min(when, now) if when else now
 
 
 def _data(item: dict) -> dict:

@@ -17,6 +17,7 @@ MAX_ITEMS = 200  # failing items stored on a result for display; findings keep t
 #   _severity  overrides the check's severity for this item (e.g. a CVE's own severity)
 #   _exploited True puts it on the shortest remediation clock
 #   _label     one-line description for lists and reports
+#   _since     when the problem began, if the source knows (an alert's creation time); starts the SLA clock
 
 
 @dataclass

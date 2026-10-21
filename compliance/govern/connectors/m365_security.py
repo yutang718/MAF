@@ -69,7 +69,7 @@ class M365SecurityMixin:
             k: v for k, v in g.get_json("/v1.0/admin/sharepoint/settings").items()
             if k in ("sharingCapability", "sharingDomainRestrictionMode", "sharingAllowedDomainList",
                      "isResharingByExternalUsersEnabled", "isRequireAcceptingUserToMatchInvitedUserEnabled")})
-        c.gather("entra.pim_active", self._pim_active)
+        c.gather("entra.pim_active", lambda: self._pim_active(c.facts.get("entra.users") or []))
         c.gather("entra.app_registrations", self._app_registrations)
         if self.config.get("collect_file_downloads"):
             self._file_downloads(c)
@@ -93,17 +93,28 @@ class M365SecurityMixin:
 
     # ─── Identity ─────────────────────────────────────────────────────────
 
-    def _pim_active(self) -> list[dict]:
+    def _pim_active(self, users: list[dict]) -> list[dict]:
         roles = {r["id"]: r for r in self._pages(self.graph, "/v1.0/roleManagement/directory/roleDefinitions",
                                                  {"$select": "id,displayName,templateId"})}
+        # This endpoint rejects $expand=principal, so names come from the user list, then getByIds.
+        instances = self._pages(self.graph, "/v1.0/roleManagement/directory/roleAssignmentScheduleInstances")
+        names = {u["id"]: (u.get("userPrincipalName"), "user") for u in users if u.get("id")}
+        unknown = sorted({a.get("principalId") for a in instances if a.get("principalId") not in names} - {None})
+        for i in range(0, len(unknown), 1000):
+            try:
+                resp = self.graph.request("POST", "/v1.0/directoryObjects/getByIds", json={"ids": unknown[i:i + 1000]})
+                raise_for_source(resp)
+                for o in resp.json().get("value", []):
+                    names[o["id"]] = (o.get("userPrincipalName") or o.get("displayName") or o["id"],
+                                      (o.get("@odata.type") or "").rsplit(".", 1)[-1])
+            except SourceUnavailable:
+                break  # fall back to ids
         rows = []
-        for a in self._pages(self.graph, "/v1.0/roleManagement/directory/roleAssignmentScheduleInstances",
-                             {"$expand": "principal"}):
+        for a in instances:
             role = roles.get(a.get("roleDefinitionId"), {})
-            principal = a.get("principal") or {}
+            who, kind = names.get(a.get("principalId"), (a.get("principalId"), ""))
             rows.append({"role": role.get("displayName"), "roleTemplateId": role.get("templateId"),
-                         "principal": principal.get("userPrincipalName") or principal.get("displayName"),
-                         "principalType": (principal.get("@odata.type") or "").rsplit(".", 1)[-1],
+                         "principal": who, "principalType": kind,
                          "assignmentType": a.get("assignmentType"), "memberType": a.get("memberType"),
                          "start": a.get("startDateTime"), "end": a.get("endDateTime")})
         return rows

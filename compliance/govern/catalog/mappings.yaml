@@ -1,0 +1,202 @@
+# Which controls each automated check provides evidence for.
+# A passing check is evidence, not proof: a control is only as complete as the
+# checks and documents behind it. Reviewed by: (fill in on review)
+#
+# check id:
+#   framework id: [control ids]
+
+# ─── Microsoft 365 ────────────────────────────────────────────────────────────
+
+m365.mfa_registered: &mfa
+  iso27001: [A.5.17, A.8.5]
+  nist_csf: [PR.AA-01, PR.AA-03]
+  hipaa: ["164.312(d)", "164.308(a)(5)(ii)(D)"]
+m365.admin_mfa:
+  iso27001: [A.5.17, A.8.2, A.8.5]
+  nist_csf: [PR.AA-03, PR.AA-05]
+  hipaa: ["164.312(d)"]
+m365.ca_require_mfa: *mfa
+m365.legacy_auth_blocked:
+  iso27001: [A.8.5, A.8.9]
+  nist_csf: [PR.AA-03, PR.PS-01]
+  hipaa: ["164.312(d)"]
+m365.global_admin_count:
+  iso27001: [A.5.15, A.8.2]
+  nist_csf: [PR.AA-05]
+  hipaa: ["164.308(a)(4)(ii)(B)"]
+m365.stale_accounts: &dormant
+  iso27001: [A.5.16, A.5.18]
+  nist_csf: [PR.AA-01, PR.AA-05]
+  hipaa: ["164.308(a)(3)(ii)(C)", "164.308(a)(4)(ii)(C)"]
+m365.stale_guests:
+  iso27001: [A.5.18, A.5.19]
+  nist_csf: [PR.AA-05, GV.SC-07]
+  hipaa: ["164.308(a)(4)(ii)(C)"]
+m365.risky_users:
+  iso27001: [A.8.16, A.5.25]
+  nist_csf: [DE.CM-03, DE.AE-02]
+  hipaa: ["164.308(a)(1)(ii)(D)", "164.308(a)(5)(ii)(C)"]
+m365.secure_score:
+  iso27001: [A.5.36, A.8.9]
+  nist_csf: [ID.RA-01, ID.IM-01]
+  hipaa: ["164.308(a)(8)"]
+m365.open_high_incidents:
+  iso27001: [A.5.25, A.5.26]
+  nist_csf: [RS.MA-02, RS.MA-03, DE.AE-08]
+  hipaa: ["164.308(a)(6)(ii)"]
+m365.data_loss_alerts:
+  iso27001: [A.8.12, A.5.14]
+  nist_csf: [PR.DS-01, PR.DS-02, DE.CM-03]
+  hipaa: ["164.308(a)(1)(ii)(D)"]
+m365.defender_sensor_health:
+  iso27001: [A.8.7, A.8.16]
+  nist_csf: [DE.CM-09, PR.PS-05]
+  hipaa: ["164.308(a)(5)(ii)(B)"]
+m365.defender_exposure:
+  iso27001: [A.8.8]
+  nist_csf: [ID.RA-01, PR.PS-02]
+  hipaa: ["164.308(a)(1)(ii)(B)"]
+m365.device_compliance:
+  iso27001: [A.8.1, A.8.9]
+  nist_csf: [PR.PS-01, PR.AA-03]
+  hipaa: ["164.310(b)", "164.310(c)"]
+m365.device_encryption:
+  iso27001: [A.8.1, A.8.24]
+  nist_csf: [PR.DS-01]
+  hipaa: ["164.312(a)(2)(iv)", "164.310(c)"]
+m365.jailbroken_devices:
+  iso27001: [A.8.1]
+  nist_csf: [PR.PS-01, DE.CM-09]
+  hipaa: ["164.310(c)"]
+m365.stale_devices:
+  iso27001: [A.5.9]
+  nist_csf: [ID.AM-01, ID.AM-08]
+  hipaa: ["164.310(d)(2)(iii)"]
+m365.compliance_policy_coverage:
+  iso27001: [A.8.1, A.8.9]
+  nist_csf: [PR.PS-01]
+  hipaa: ["164.310(c)"]
+m365.sensitivity_labels:
+  iso27001: [A.5.12, A.5.13]
+  nist_csf: [ID.AM-07, ID.AM-05]
+m365.retention_labels:
+  iso27001: [A.5.33, A.8.10]
+  nist_csf: [ID.AM-08]
+  hipaa: ["164.316(b)(2)(i)"]
+
+# ─── GitHub and GitLab (shared meanings) ──────────────────────────────────────
+
+github.org_2fa_required: &codehost_2fa
+  iso27001: [A.5.17, A.8.5]
+  nist_csf: [PR.AA-03]
+  hipaa: ["164.312(d)"]
+github.members_without_2fa: *codehost_2fa
+gitlab.group_2fa_required: *codehost_2fa
+gitlab.members_without_2fa: *codehost_2fa
+
+github.owner_count: &codehost_privileged
+  iso27001: [A.8.2, A.8.4]
+  nist_csf: [PR.AA-05]
+  hipaa: ["164.308(a)(4)(ii)(B)"]
+gitlab.owner_count: *codehost_privileged
+
+github.default_permission:
+  iso27001: [A.5.15, A.8.3, A.8.4]
+  nist_csf: [PR.AA-05]
+  hipaa: ["164.308(a)(4)(ii)(B)"]
+github.outside_collaborators:
+  iso27001: [A.5.18, A.5.19, A.8.4]
+  nist_csf: [PR.AA-05, GV.SC-07]
+  hipaa: ["164.308(a)(4)(ii)(C)"]
+
+github.public_repos: &codehost_public
+  iso27001: [A.8.4, A.8.12]
+  nist_csf: [PR.DS-01, PR.AA-05]
+gitlab.public_projects: *codehost_public
+gitlab.forking_outside_group: *codehost_public
+
+github.branch_protection: &codehost_change
+  iso27001: [A.8.4, A.8.32, A.8.25]
+  nist_csf: [PR.PS-06, PR.PS-01]
+  hipaa: ["164.312(c)(2)"]
+gitlab.branch_protection: *codehost_change
+
+github.writable_deploy_keys: &codehost_keys
+  iso27001: [A.5.17, A.8.2, A.8.4]
+  nist_csf: [PR.AA-01, PR.AA-05]
+gitlab.writable_deploy_keys: *codehost_keys
+
+github.token_expiry: &codehost_tokens
+  iso27001: [A.5.17]
+  nist_csf: [PR.AA-01]
+  hipaa: ["164.308(a)(5)(ii)(D)"]
+gitlab.token_expiry: *codehost_tokens
+
+github.audit_log: &codehost_audit
+  iso27001: [A.8.15, A.8.16]
+  nist_csf: [PR.PS-04, DE.CM-03]
+  hipaa: ["164.312(b)", "164.308(a)(1)(ii)(D)"]
+gitlab.audit_log: *codehost_audit
+
+github.secret_scanning:
+  iso27001: [A.8.28, A.8.25]
+  nist_csf: [PR.PS-06]
+github.open_secret_alerts:
+  iso27001: [A.5.17, A.8.28]
+  nist_csf: [PR.AA-01, ID.RA-01]
+  hipaa: ["164.308(a)(1)(ii)(B)"]
+github.dependabot_sla:
+  iso27001: [A.8.8]
+  nist_csf: [ID.RA-01, ID.RA-06, PR.PS-02]
+  hipaa: ["164.308(a)(1)(ii)(B)"]
+github.code_scanning_sla:
+  iso27001: [A.8.8, A.8.28, A.8.29]
+  nist_csf: [ID.RA-01, PR.PS-06]
+  hipaa: ["164.308(a)(1)(ii)(B)"]
+github.webhooks_secure:
+  iso27001: [A.8.20, A.8.24, A.5.14]
+  nist_csf: [PR.DS-02]
+  hipaa: ["164.312(e)(2)(ii)", "164.312(e)(2)(i)"]
+github.app_permissions:
+  iso27001: [A.5.19, A.5.21, A.8.2]
+  nist_csf: [GV.SC-07, PR.AA-05]
+
+# ─── Archery ──────────────────────────────────────────────────────────────────
+
+archery.masking_enabled: &masking
+  iso27001: [A.8.11, A.5.34]
+  nist_csf: [PR.DS-10, PR.DS-01]
+  hipaa: ["164.308(a)(4)(ii)(B)"]
+archery.masking_enforced: *masking
+archery.unmasked_sensitive_columns:
+  iso27001: [A.8.11, A.5.12, A.5.34]
+  nist_csf: [ID.AM-07, PR.DS-10]
+  hipaa: ["164.308(a)(4)(ii)(B)", "164.308(a)(1)(ii)(A)"]
+archery.queryable_credentials:
+  iso27001: [A.5.17, A.8.3]
+  nist_csf: [PR.AA-01, PR.DS-01]
+archery.select_star_disabled:
+  iso27001: [A.8.3]
+  nist_csf: [PR.AA-05]
+archery.superusers:
+  iso27001: [A.8.2, A.8.18]
+  nist_csf: [PR.AA-05]
+  hipaa: ["164.308(a)(4)(ii)(B)"]
+archery.dormant_users: *dormant
+archery.long_privileges: &query_access
+  iso27001: [A.5.18, A.8.3]
+  nist_csf: [PR.AA-05]
+  hipaa: ["164.308(a)(4)(ii)(B)", "164.308(a)(4)(ii)(C)"]
+archery.database_wide_privileges: *query_access
+archery.change_segregation:
+  iso27001: [A.5.3, A.8.32]
+  nist_csf: [PR.AA-05, ID.RA-07]
+  hipaa: ["164.312(c)(2)", "164.308(a)(3)(ii)(A)"]
+archery.high_risk_changes:
+  iso27001: [A.8.32, A.8.31]
+  nist_csf: [ID.RA-07, PR.PS-01]
+  hipaa: ["164.312(c)(2)"]
+archery.query_audit:
+  iso27001: [A.8.15, A.8.16]
+  nist_csf: [PR.PS-04, DE.CM-03]
+  hipaa: ["164.312(b)", "164.308(a)(1)(ii)(D)"]

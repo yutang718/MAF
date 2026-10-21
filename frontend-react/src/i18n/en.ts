@@ -298,6 +298,10 @@ const en: Record<string, string> = {
   'pii.sampleInputs': 'Sample Inputs',
   'pii.maskedOutput': 'Masked Output',
   'pii.entitiesFound': 'Entities Found',
+  'pii.risk': 'Risk: {level}',
+  'pii.risk.low': 'low',
+  'pii.risk.medium': 'medium',
+  'pii.risk.high': 'high',
   'pii.awaiting': 'Awaiting input',
 
   // ─── IslamicCompliancePage ────────────────────────────────────────────────────

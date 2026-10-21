@@ -298,6 +298,10 @@ const zh: Record<string, string> = {
   'pii.sampleInputs': '示例输入',
   'pii.maskedOutput': '脱敏输出',
   'pii.entitiesFound': '发现实体',
+  'pii.risk': '风险：{level}',
+  'pii.risk.low': '低',
+  'pii.risk.medium': '中',
+  'pii.risk.high': '高',
   'pii.awaiting': '等待输入',
 
   // ─── IslamicCompliancePage ────────────────────────────────────────────────────

@@ -45,11 +45,56 @@ def create_app() -> FastAPI:
     
     # 初始化全局服务实例
     Services()
-    
+
+    # 安全治理服务（compliance/）挂在同一域名下，必须在 SPA fallback 之前注册
+    mount_governance_proxy(app)
+
     # 托管前端静态文件（单 image 部署时由 Dockerfile 设置 STATIC_DIR）
     mount_frontend(app)
-    
+
     return app
+
+
+# 逐跳头不能原样转发
+_HOP_HEADERS = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers",
+                "transfer-encoding", "upgrade", "host", "content-length", "content-encoding"}
+
+
+def mount_governance_proxy(app: FastAPI) -> None:
+    """把 /api/v1/governance/* 转发给安全治理服务（GOVERN_URL），前端因此只需一个源"""
+    target = os.getenv("GOVERN_URL", "").rstrip("/")
+    if not target:
+        logger.info("GOVERN_URL not set, security governance proxy disabled")
+        return
+    import httpx
+    from fastapi import Request
+    from fastapi.responses import Response
+
+    client = httpx.AsyncClient(base_url=target, timeout=httpx.Timeout(120.0, connect=5.0))
+
+    @app.api_route(f"{settings.API_V1_STR}/governance/{{path:path}}",
+                   methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+    async def governance_proxy(path: str, request: Request):
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in _HOP_HEADERS}
+        if request.client:
+            headers["x-forwarded-for"] = request.client.host
+        headers["x-forwarded-proto"] = request.url.scheme
+        try:
+            upstream = await client.request(
+                request.method, f"{settings.API_V1_STR}/governance/{path}", params=request.query_params,
+                headers=headers, content=await request.body())
+        except httpx.HTTPError as e:
+            logger.warning(f"governance service unreachable: {e}")
+            raise HTTPException(status_code=502, detail="Security governance service is unreachable")
+        response = Response(content=upstream.content, status_code=upstream.status_code,
+                            headers={k: v for k, v in upstream.headers.items()
+                                     if k.lower() not in _HOP_HEADERS and k.lower() != "set-cookie"})
+        # 多个 Set-Cookie 需逐条保留
+        for cookie in upstream.headers.get_list("set-cookie"):
+            response.headers.append("set-cookie", cookie)
+        return response
+
+    logger.info(f"Proxying {settings.API_V1_STR}/governance to {target}")
 
 
 def mount_frontend(app: FastAPI) -> None:

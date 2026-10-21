@@ -19,6 +19,7 @@ onnxruntime>=1.16.0
 # HTTP
 requests==2.31.0
 aiohttp==3.9.1
+httpx>=0.25  # security governance proxy (also pulled in by openai)
 
 # LLM API
 openai>=1.0.0

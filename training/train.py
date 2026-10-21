@@ -34,7 +34,7 @@ LABEL2ID = {l: i for i, l in enumerate(LABELS)}
 ID2LABEL = {0: "BENIGN", 1: "INJECTION", 2: "HARMFUL_REQUEST"}
 THRESHOLDS = [0.5, 0.8, 0.9, 0.95, 0.98, 0.99]
 # project-specific sources that get oversampled (--domain-repeat) instead of thinned (--public-frac)
-DOMAIN_SOURCES = ["real", "malay", "consult", "authz"]
+DOMAIN_SOURCES = ["real", "malay", "consult", "authz", "redteam"]
 
 
 def parse_args():

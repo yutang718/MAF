@@ -29,7 +29,126 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "MAF internal — translated from deepset, jackhhao, Lakera, xTRam1, TrustAIRLab",
         "downloads_monthly": 0,
         "category": "Malay (Translated)",
+        "overlap_v4": 1.0,
+        "name_zh": "马来语提示注入（翻译集）",
+        "description_zh": "380 条精选马来语样本 —— 从 deepset、jackhhao、Lakera、xTRam1、TrustAIRLab 一一翻译而来。130 条正常（含易误判的安全相关提问）+ 250 条注入，覆盖 7 类攻击。",
+        "category_zh": "马来语（翻译）",
         "local": True,
+    },
+    "maf/malay-injection-brunei-v1": {
+        "id": "maf/malay-injection-brunei-v1",
+        "name": "Malay Prompt Injection (Brunei, 10k)",
+        "description": "9,904 colloquial Brunei-Malay injection prompts (ani / kamurang / inda register), covering instruction override, role-play, authority pretexts, encoding tricks and multi-turn framing. Attack-only — measures recall, not false positives. Paired 1:1 with an English source set.",
+        "samples": 9904,
+        "languages": ["MS"],
+        "labels": ["injection (all samples)"],
+        "license": "Internal",
+        "citation": "MAF internal — Brunei-Malay injection set (2026)",
+        "downloads_monthly": 0,
+        "category": "Malay (Colloquial)",
+        "overlap_v4": 0.0,
+        "name_zh": "马来语提示注入（汶莱口语，1 万条）",
+        "description_zh": "9,904 条汶莱口语马来语注入样本（ani / kamurang / inda 语域），覆盖指令覆盖、角色扮演、权限托词、编码混淆与多轮铺垫。纯攻击集 —— 只测召回率，测不了误报。与一套英文原文一一对应。",
+        "category_zh": "马来语（口语）",
+        "local": True,
+    },
+    "maf/consult-benign-malay-v1": {
+        "id": "maf/consult-benign-malay-v1",
+        "name": "Consult Benign Malay (human-verified)",
+        "description": "3,311 ordinary patient-consult requests in natural Brunei Malay, translated from the English consult set and verified by a native speaker. Benign-only — measures false positives, not recall. 2,647 of these items were in v4 training as stiffer NLLB machine translations; use the holdout variant for an uncontaminated FPR.",
+        "samples": 3311,
+        "languages": ["MS"],
+        "labels": ["benign (all samples)"],
+        "license": "Internal",
+        "citation": "MAF internal — consult benign set, Malay translation verified by Danial (2026)",
+        "downloads_monthly": 0,
+        "category": "Malay (Benign)",
+        "overlap_v4": 0.799,
+        "name_zh": "问诊正常请求·马来语（人工校验）",
+        "description_zh": "3,311 条自然汶莱马来语的普通问诊请求，由英文问诊集翻译并经母语者校验。纯正常集 —— 只测误报率，测不了召回。其中 2,647 条对应的机翻版本曾用于 V4 训练，对外报数字请用留出版本。",
+        "category_zh": "马来语（正常）",
+        "local": True,
+    },
+    "maf/consult-benign-malay-holdout": {
+        "id": "maf/consult-benign-malay-holdout",
+        "name": "Consult Benign Malay (v4 holdout)",
+        "description": "The 664 items of the human-verified Malay consult set whose English/Chinese counterparts were held out of v4 training. The cleanest false-positive number for this traffic — no version of these questions was trained on.",
+        "samples": 664,
+        "languages": ["MS"],
+        "labels": ["benign (all samples)"],
+        "license": "Internal",
+        "citation": "MAF internal — consult benign set (v4 holdout), Malay verified by Danial (2026)",
+        "downloads_monthly": 0,
+        "category": "Malay (Benign)",
+        "overlap_v4": 0.0,
+        "name_zh": "问诊正常请求·马来语（V4 留出）",
+        "description_zh": "人工校验马来语问诊集中，英文 / 中文对应项未进入 V4 训练的 664 条。这是该业务流量最干净的误报指标 —— 这些问题的任何版本都没被训练过。",
+        "category_zh": "马来语（正常）",
+        "local": True,
+        "split_filter": "holdout",
+    },
+    "neuralchemy/Prompt-injection-dataset": {
+        "id": "neuralchemy/Prompt-injection-dataset",
+        "name": "Neuralchemy Prompt Injection (leakage-free)",
+        "description": "The 942-row held-out test split of a deduplicated, leakage-free binary corpus. Its benign rows are deliberately hard negatives -- 'override the default theme', 'ignore the noise in this signal' -- which is exactly what separates a usable detector from an over-blocking one.",
+        "samples": 942,
+        "languages": ["EN"],
+        "labels": ["benign (0)", "injection (1)"],
+        "license": "Apache-2.0",
+        "citation": "neuralchemy (2026)",
+        "downloads_monthly": 2758,
+        "category": "Hard Negatives",
+        "name_zh": "Neuralchemy 提示注入集（无泄漏）",
+        "description_zh": "一份去重、无数据泄漏的二分类语料的 942 条留出测试集。它的正常样本刻意选了难负例 ——「覆盖默认主题」「忽略信号里的噪声」—— 这恰恰是可用检测器与过度拦截之间的分界。",
+        "category_zh": "难负例",
+        "overlap_v4": 0.0,
+        "text_column": "text",
+        "label_column": "label",
+        "label_map": {0: "benign", 1: "injection"},
+        "split": "test",
+        "config_name": "core",
+    },
+    "lmsys/toxic-chat": {
+        "id": "lmsys/toxic-chat",
+        "name": "ToxicChat (real user traffic)",
+        "description": "5,083 real prompts from the Vicuna demo, hand-annotated for toxicity and jailbreaking. Only a small fraction are jailbreaks, so this mainly measures false positives on genuine conversational traffic -- the failure mode that matters in production.",
+        "samples": 5083,
+        "languages": ["EN"],
+        "labels": ["benign (0)", "jailbreaking (1)"],
+        "license": "CC-BY-NC-4.0",
+        "citation": "Lin et al. (LMSYS / UCSD), EMNLP 2023 Findings, arXiv 2310.17389",
+        "downloads_monthly": 7991,
+        "category": "Real Traffic",
+        "name_zh": "ToxicChat（真实用户流量）",
+        "description_zh": "5,083 条来自 Vicuna 演示站的真实用户提示，人工标注毒性与越狱。其中越狱只占很小一部分，所以它主要测的是真实对话流量上的误报率 —— 也就是生产环境真正会出问题的那一面。",
+        "category_zh": "真实流量",
+        "overlap_v4": 0.0,
+        "text_column": "user_input",
+        "label_column": "jailbreaking",
+        "label_map": {0: "benign", 1: "injection"},
+        "split": "test",
+        "config_name": "toxicchat0124",
+        "max_samples": 1000,
+    },
+    "yanismiraoui/prompt_injections": {
+        "id": "yanismiraoui/prompt_injections",
+        "name": "Multilingual Prompt Injections (7 languages)",
+        "description": "1,034 injection prompts in English, French, German, Spanish, Portuguese, Italian and Romanian. Attack-only. Besides the Malay sets this is the only cross-lingual attack set here, so it answers whether recall survives outside English.",
+        "samples": 1034,
+        "languages": ["EN", "FR", "DE", "ES", "PT", "IT", "RO"],
+        "labels": ["injection (all samples)"],
+        "license": "Apache-2.0",
+        "citation": "Yanis Miraoui (2024)",
+        "downloads_monthly": 715,
+        "category": "Multilingual",
+        "name_zh": "多语言提示注入集（7 语种）",
+        "description_zh": "1,034 条英、法、德、西、葡、意、罗马尼亚语的注入提示。纯攻击集。除马来语集外，这是这里唯一的跨语言攻击集 —— 用来回答召回率在英语之外还撑不撑得住。",
+        "category_zh": "多语言",
+        "overlap_v4": 0.0,
+        "text_column": "prompt_injections",
+        "label_column": None,
+        "all_injection": True,
+        "split": "train",
     },
     "deepset/prompt-injections": {
         "id": "deepset/prompt-injections",
@@ -42,6 +161,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "deepset (2023)",
         "downloads_monthly": 6144,
         "category": "Foundation",
+        "overlap_v4": 0.998,
+        "name_zh": "deepset 提示注入集",
+        "description_zh": "提示注入领域的奠基数据集 —— 事实标准，已被 54 个以上模型用于训练。由 deepset（RAG / NLP 公司）创建。",
+        "category_zh": "基础集",
         "text_column": "text",
         "label_column": "label",
         "label_map": {0: "benign", 1: "injection"},
@@ -58,6 +181,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "jackhhao (2023), sources: verazuo/jailbreak_llms",
         "downloads_monthly": 2723,
         "category": "Jailbreak",
+        "overlap_v4": 0.399,
+        "name_zh": "越狱分类集",
+        "description_zh": "ProtectAI DeBERTa 模型的训练数据。越狱提示来自 verazuo/jailbreak_llms，正常样本来自 OpenOrca 与 GPTeacher。",
+        "category_zh": "越狱",
         "text_column": "prompt",
         "label_column": "type",
         "label_map": {"benign": "benign", "jailbreak": "injection"},
@@ -74,6 +201,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "Lakera (2025), arXiv 2501.07927 — Gandalf the Red",
         "downloads_monthly": 727,
         "category": "Real-world Attacks",
+        "overlap_v4": 0.001,
+        "name_zh": "Lakera Mosscap（DEF CON 31）",
+        "description_zh": "22.3 万条来自 DEF CON 31 AI Village Gandalf 挑战赛的真实用户攻击。多难度分级，源自实际对抗测试。",
+        "category_zh": "真实攻击",
         "text_column": "prompt",
         "label_column": None,
         "all_injection": True,
@@ -91,6 +222,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "Lakera (2025), arXiv 2501.07927",
         "downloads_monthly": 1728,
         "category": "Curated Attacks",
+        "overlap_v4": 1.0,
+        "name_zh": "Lakera Gandalf 指令忽略集",
+        "description_zh": "1,000 条高质量精选注入提示，附与「忽略之前所有指令」的语义相似度评分。已被 11 个以上模型使用。",
+        "category_zh": "精选攻击",
         "text_column": "text",
         "label_column": None,
         "all_injection": True,
@@ -107,6 +242,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "Erdogan et al. (UC Berkeley, 2023)",
         "downloads_monthly": 2112,
         "category": "Synthetic",
+        "overlap_v4": 0.983,
+        "name_zh": "SafeGuard 提示注入集",
+        "description_zh": "加州大学伯克利团队用分类树 + GPT-3.5 合成的攻击集。基于该集训练的 DeBERTa-v3-small 达到 99.6% 准确率。",
+        "category_zh": "合成",
         "text_column": "text",
         "label_column": "label",
         "label_map": {0: "benign", 1: "injection"},
@@ -123,6 +262,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "Shen et al. (TrustAIRLab/CISPA), ACM CCS 2024, arXiv 2308.03825",
         "downloads_monthly": 1901,
         "category": "Real-world (Academic)",
+        "overlap_v4": 0.716,
+        "name_zh": "野生越狱提示集",
+        "description_zh": "从 Reddit、Discord、网站收集的真实越狱提示。ACM CCS 2024 论文，带社区类型标注（DAN、Anarchy 等）。",
+        "category_zh": "真实场景（学术）",
         "text_column": "prompt",
         "label_column": "jailbreak",
         "label_map": {"True": "injection", "False": "benign", True: "injection", False: "benign"},
@@ -141,6 +284,10 @@ DATASET_REGISTRY: Dict[str, Dict[str, Any]] = {
         "citation": "Schulhoff et al. (2023), EMNLP 2023, arXiv 2311.16119",
         "downloads_monthly": 1370,
         "category": "Competition (Academic)",
+        "overlap_v4": None,
+        "name_zh": "HackAPrompt（EMNLP 2023）",
+        "description_zh": "全球提示攻击竞赛数据集。马里兰大学 Schulhoff 等人的 EMNLP 2023 论文，含针对 GPT-3.5、davinci、FlanT5 的成功攻击。",
+        "category_zh": "竞赛（学术）",
         "text_column": "user_input",
         "label_column": "correct",
         "label_map": {True: "injection", False: "benign"},
@@ -260,6 +407,33 @@ class BenchmarkService:
             samples = [{"text": s["text"], "expected": s["label"]} for s in data]
             logger.info(f"Loaded {len(samples)} local Malay samples")
             return samples
+        if dataset_id == "maf/malay-injection-brunei-v1":
+            import csv
+            import random
+            from pathlib import Path
+            path = Path(__file__).resolve().parent.parent / "data" / "malay_injection_brunei.csv"
+            with path.open(encoding="utf-8") as f:
+                data = [{"text": r["text"], "expected": r["label"]} for r in csv.DictReader(f) if r["text"].strip()]
+            random.Random(42).shuffle(data)
+            data = data[:max_samples]
+            logger.info(f"Loaded {len(data)} local Brunei-Malay injection samples from {path.name}")
+            return data
+        if dataset_id in ("maf/consult-benign-malay-v1", "maf/consult-benign-malay-holdout"):
+            import csv
+            import random
+            from pathlib import Path
+            split_filter = DATASET_REGISTRY[dataset_id].get("split_filter")
+            path = Path(__file__).resolve().parent.parent / "data" / "consult_benign_malay.csv"
+            with path.open(encoding="utf-8") as f:
+                rows = [r for r in csv.DictReader(f) if r["text"].strip()]
+            if split_filter:
+                rows = [r for r in rows if r.get("split") == split_filter]
+            data = [{"text": r["text"], "expected": r["label"]} for r in rows]
+            random.Random(42).shuffle(data)
+            data = data[:max_samples]
+            logger.info(f"Loaded {len(data)} local consult-benign Malay samples from {path.name}"
+                        f"{' (split=' + split_filter + ')' if split_filter else ''}")
+            return data
         raise ValueError(f"Unknown local dataset: {dataset_id}")
 
     async def start_benchmark(self, dataset_id: str, models: List[str], max_samples: int = 200, thresholds: Optional[Dict[str, float]] = None) -> str:
@@ -371,6 +545,9 @@ class BenchmarkService:
 
         metrics = self._compute_metrics(predictions, expected_labels, latencies)
         metrics["details"] = details
+        # release that produced these numbers (EVYD Defender only), so stored runs keep their own version
+        if getattr(detector, "version", None):
+            metrics["version"] = detector.version
         return metrics
 
     @staticmethod

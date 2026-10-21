@@ -1,6 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { detectProventra, detectModernGuard, detectWolfDefender, detectMafGuard, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun, uploadAndRunBenchmark } from '../api/prompt'
+import { XMarkIcon, ClockIcon, ChevronDownIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/20/solid'
+import { Tabs, TabPanel } from '../components/Tabs'
+import { errorMessage } from '../api/client'
 import type { ProventraResult, MafGuardResult } from '../types/prompt'
+import { useMafGuardInfo, useMafGuardName, mafGuardName } from '../utils/mafGuardVersion'
 import { useTranslation } from '../i18n/context'
 
 interface ModelConfig {
@@ -56,25 +60,15 @@ const batchSamples = [
 
 export default function PromptInjectionPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<string>(t('prompt.tab.analysis'))
+  const [activeTab, setActiveTab] = useState(0)
 
   const tabs = [t('prompt.tab.analysis'), t('prompt.tab.models'), t('prompt.tab.batch'), t('prompt.tab.benchmark')]
 
   // Per-model configuration
-  const [proventraConfig, setProventraConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
-  const [modernguardConfig, setModernguardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
-  const [wolfConfig, setWolfConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
-  const [mafConfig, setMafConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: '3-class' })
-
-  // Determine which tab is active by index
-  const tabIndex = tabs.indexOf(activeTab)
-  // Reset to first tab if language changed and activeTab no longer matches
-  const effectiveIndex = tabIndex === -1 ? 0 : tabIndex
-  const effectiveTab = tabs[effectiveIndex]
-  if (tabIndex === -1 && activeTab !== effectiveTab) {
-    // sync state
-    setTimeout(() => setActiveTab(effectiveTab), 0)
-  }
+  const [proventraConfig, setProventraConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: 'binary' })
+  const [modernguardConfig, setModernguardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: 'binary' })
+  const [wolfConfig, setWolfConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: 'binary' })
+  const [mafConfig, setMafConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: '3-class' })
 
   return (
     <div className="space-y-4">
@@ -83,36 +77,31 @@ export default function PromptInjectionPage() {
           <h1 className="text-xl font-bold text-cyber-text tracking-tight">{t('prompt.title')}</h1>
           <p className="text-sm text-cyber-muted mt-0.5">{t('prompt.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-cyber-surface/40 rounded-lg border border-cyber-border/40">
-          {tabs.map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`tab-btn ${activeTab === tab ? 'tab-btn-active' : ''}`}>
-              {tab}
-            </button>
-          ))}
-        </div>
+        <Tabs id="prompt" labels={tabs} active={activeTab} onChange={setActiveTab} />
       </div>
 
-      {effectiveIndex === 0 && (
+      <TabPanel id="prompt" index={0} active={activeTab}>
         <AnalysisTab
           proventraConfig={proventraConfig} setProventraConfig={setProventraConfig}
           modernguardConfig={modernguardConfig} setModernguardConfig={setModernguardConfig}
           wolfConfig={wolfConfig} setWolfConfig={setWolfConfig}
           mafConfig={mafConfig} setMafConfig={setMafConfig}
         />
-      )}
-      {effectiveIndex === 1 && <AvailableModelsTab />}
-      {effectiveIndex === 2 && (
+      </TabPanel>
+      <TabPanel id="prompt" index={1} active={activeTab}>
+        <AvailableModelsTab />
+      </TabPanel>
+      <TabPanel id="prompt" index={2} active={activeTab}>
         <BatchEvaluation
           proventraConfig={proventraConfig}
           modernguardConfig={modernguardConfig}
           wolfConfig={wolfConfig}
           mafConfig={mafConfig}
         />
-      )}
-      <div className={effectiveIndex === 3 ? '' : 'hidden'}>
+      </TabPanel>
+      <TabPanel id="prompt" index={3} active={activeTab}>
         <BenchmarkTab />
-      </div>
+      </TabPanel>
     </div>
   )
 }
@@ -131,6 +120,7 @@ function AnalysisTab({
   mafConfig: ModelConfig; setMafConfig: (c: ModelConfig) => void
 }) {
   const { t } = useTranslation()
+  const mafName = useMafGuardName()
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [proventraResult, setProventraResult] = useState<ProventraResult | null>(null)
@@ -157,6 +147,8 @@ function AnalysisTab({
     if (mafConfig.enabled) { promises.push(detectMafGuard(text, mafConfig.threshold)); indices.push(6) }
 
     const results = await Promise.allSettled(promises)
+    const names: Record<number, string> = { 3: 'Proventra', 4: 'ModernGuard', 5: 'Wolf Defender', 6: 'EVYD Defender' }
+    const failures: { name: string; reason: string }[] = []
 
     results.forEach((r, idx) => {
       const modelIdx = indices[idx]
@@ -166,78 +158,110 @@ function AnalysisTab({
         if (modelIdx === 5) setWolfResult(r.value as ProventraResult)
         if (modelIdx === 6) setMafResult(r.value as MafGuardResult)
       } else {
-        const names: Record<number, string> = { 3: 'Proventra', 4: 'ModernGuard', 5: 'Wolf Defender', 6: 'EVYD Defender' }
-        setErrors(prev => [...prev, `${names[modelIdx]}: ${String(r.reason)}`])
+        failures.push({ name: names[modelIdx], reason: errorMessage(r.reason, t) })
       }
     })
+
+    // A down backend fails every model identically; say it once, not once per model.
+    const sameReason = failures.length > 1 && failures.every(f => f.reason === failures[0].reason)
+    setErrors(sameReason && failures.length === results.length
+      ? [t('prompt.analysis.allFailed', { count: failures.length, reason: failures[0].reason })]
+      : failures.map(f => `${f.name}: ${f.reason}`))
 
     setLoading(false)
   }
 
   const enabledCount = [proventraConfig.enabled, modernguardConfig.enabled, wolfConfig.enabled, mafConfig.enabled].filter(Boolean).length
+  const [showSettings, setShowSettings] = useState(false)
+  const activeThresholds = [proventraConfig, modernguardConfig, wolfConfig, mafConfig].filter(c => c.enabled).map(c => c.threshold)
+  const lo = Math.min(...activeThresholds)
+  const hi = Math.max(...activeThresholds)
+  const thresholdRange = activeThresholds.length === 0 ? '—' : lo === hi ? lo.toFixed(2) : `${lo.toFixed(2)}–${hi.toFixed(2)}`
 
   return (
     <div className="space-y-5">
-      {/* Model Configuration Panel */}
-      <div className="panel">
-        <h3 className="text-base font-semibold text-cyber-text mb-5">{t('prompt.modelParams')}</h3>
-        <div className="grid grid-cols-4 gap-4">
-          {/* Proventra Config */}
-          <ModelConfigCard
-            name="Proventra mDeBERTa v3"
-            tag="Multilingual · PyTorch"
-            config={proventraConfig}
-            onChange={setProventraConfig}
-            thresholdLabel={t('prompt.injectionThreshold')}
-          />
-
-          {/* ModernGuard-1 Config */}
-          <ModelConfigCard
-            name="ModernGuard-1"
-            tag="1080 Languages · 8k ctx"
-            config={modernguardConfig}
-            onChange={setModernguardConfig}
-            thresholdLabel={t('prompt.injectionThreshold')}
-          />
-
-          {/* Wolf Defender Config */}
-          <ModelConfigCard
-            name="Wolf Defender v2"
-            tag="Multilingual · Low FPR"
-            config={wolfConfig}
-            onChange={setWolfConfig}
-            thresholdLabel={t('prompt.injectionThreshold')}
-          />
-
-          {/* EVYD Defender Config (project fine-tuned) */}
-          <ModelConfigCard
-            name="EVYD Defender V3"
-            tag="Fine-tuned · 3-Class"
-            config={mafConfig}
-            onChange={setMafConfig}
-            thresholdLabel={t('prompt.threatThreshold')}
-          />
+      {/* Input first: the task owns the page, settings sit one click away */}
+      <div className="panel space-y-3">
+        <label htmlFor="prompt-input" className="block text-sm font-medium text-cyber-text">{t('prompt.inputLabel')}</label>
+        <textarea id="prompt-input" value={text} onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); run() } }}
+          aria-describedby="prompt-shortcut"
+          placeholder={t('prompt.placeholder')}
+          className="input-field h-32 resize-none" />
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <button onClick={() => setShowSettings(v => !v)} aria-expanded={showSettings} aria-controls="model-settings"
+            className="btn-ghost text-sm px-3 py-1.5">
+            <AdjustmentsHorizontalIcon className="w-4 h-4" aria-hidden="true" />
+            {t('prompt.settingsSummary', { count: enabledCount, range: thresholdRange })}
+            <ChevronDownIcon className={`w-4 h-4 transition-transform duration-150 ${showSettings ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
+          <div className="flex items-center gap-3 ml-auto">
+            <span id="prompt-shortcut" className="text-xs text-cyber-muted">{t('prompt.shortcut')}</span>
+            <button onClick={run} disabled={loading || !text.trim() || enabledCount === 0} className="btn-primary">
+              {loading
+                ? t('prompt.running', { count: enabledCount, plural: enabledCount > 1 ? 's' : '' })
+                : t('prompt.analyzeWith', { count: enabledCount, plural: enabledCount > 1 ? 's' : '' })}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Input */}
-      <div className="panel space-y-3">
-        <textarea value={text} onChange={(e) => setText(e.target.value)}
-          placeholder={t('prompt.placeholder')}
-          className="input-field h-32 resize-none" />
-        <button onClick={run} disabled={loading || !text.trim() || enabledCount === 0} className="btn-primary w-full">
-          {loading
-            ? t('prompt.running', { count: enabledCount, plural: enabledCount > 1 ? 's' : '' })
-            : t('prompt.analyzeWith', { count: enabledCount, plural: enabledCount > 1 ? 's' : '' })}
-        </button>
-      </div>
+      {showSettings && (
+        <section id="model-settings" aria-labelledby="model-settings-heading">
+          <h2 id="model-settings-heading" className="text-sm font-semibold text-cyber-text mb-3">{t('prompt.modelParams')}</h2>
+          <div className="grid grid-cols-4 gap-4">
+        {/* Proventra Config */}
+        <ModelConfigCard
+          name="Proventra mDeBERTa v3"
+          tag="Multilingual · PyTorch"
+          config={proventraConfig}
+          onChange={setProventraConfig}
+          thresholdLabel={t('prompt.injectionThreshold')}
+        />
+
+        {/* ModernGuard-1 Config */}
+        <ModelConfigCard
+          name="ModernGuard-1"
+          tag="1080 Languages · 8k ctx"
+          config={modernguardConfig}
+          onChange={setModernguardConfig}
+          thresholdLabel={t('prompt.injectionThreshold')}
+        />
+
+        {/* Wolf Defender Config */}
+        <ModelConfigCard
+          name="Wolf Defender v2"
+          tag="Multilingual · Low FPR"
+          config={wolfConfig}
+          onChange={setWolfConfig}
+          thresholdLabel={t('prompt.injectionThreshold')}
+        />
+
+        {/* EVYD Defender Config (project fine-tuned) */}
+        <ModelConfigCard
+          name={mafName}
+          tag="Fine-tuned · 3-Class"
+          config={mafConfig}
+          onChange={setMafConfig}
+          thresholdLabel={t('prompt.threatThreshold')}
+        />
+          </div>
+        </section>
+      )}
 
       {/* Errors */}
       {errors.length > 0 && (
-        <div className="panel-sm border-cyber-danger/20 space-y-1">
+        <div className="panel-sm border-cyber-danger/30 space-y-1" role="alert">
           {errors.map((e, i) => <p key={i} className="text-sm text-cyber-danger">{e}</p>)}
         </div>
       )}
+
+      {/* Screen readers hear the run finish; the cards below carry the detail. */}
+      <p className="sr-only" role="status">
+        {!loading && (proventraResult || modernguardResult || wolfResult || mafResult)
+          ? t('prompt.analysisDone', { count: [proventraResult, modernguardResult, wolfResult, mafResult].filter(Boolean).length })
+          : ''}
+      </p>
 
       {/* Results */}
       {(proventraResult || modernguardResult || wolfResult || mafResult) && (
@@ -280,10 +304,10 @@ function AnalysisTab({
 
           {mafConfig.enabled && mafResult && (
             <ModelResultCard
-              title="EVYD Defender V3"
-              safe={mafResult.is_safe}
+              title={mafName}
+              safe={!mafResult.is_injection && !mafResult.is_harmful_request}
               label={mafResult.label}
-              score={mafResult.threat_score}
+              score={Math.max(mafResult.injection_score, mafResult.harmful_score)}
               scoreLabel={t('prompt.mafThreatScore')}
               threshold={mafConfig.threshold}
               latencyMs={mafResult.latency_ms}
@@ -291,7 +315,7 @@ function AnalysisTab({
                 <div className="mt-3 pt-3 border-t border-cyber-border/40">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <ScoreCell label={t('prompt.benign')} value={mafResult.scores.BENIGN} color="text-cyber-green" />
-                    <ScoreCell label={t('prompt.injectionLabel')} value={mafResult.scores.INJECTION} color="text-amber-400" />
+                    <ScoreCell label={t('prompt.injectionLabel')} value={mafResult.scores.INJECTION} color="text-cyber-warning" />
                     <ScoreCell label={t('prompt.harmfulLabel')} value={mafResult.scores.HARMFUL_REQUEST} color="text-cyber-danger" />
                   </div>
                 </div>
@@ -311,18 +335,22 @@ function ModelConfigCard({ name, tag, config, onChange, thresholdLabel, extraCon
   onChange: (c: ModelConfig) => void; thresholdLabel: string
   extraControls?: React.ReactNode
 }) {
+  const { t } = useTranslation()
+  const sliderId = useId()
   return (
     <div className={`panel-sm transition-all ${config.enabled ? 'border-cyber-accent/20' : 'opacity-50'}`}>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h4 className="text-[15px] font-semibold text-cyber-text">{name}</h4>
+          <h3 className="text-[15px] font-semibold text-cyber-text">{name}</h3>
           <p className="text-sm text-cyber-muted mt-0.5">{tag}</p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" checked={config.enabled}
+          <input type="checkbox" role="switch" checked={config.enabled}
             onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
+            aria-label={t('prompt.enableModel', { name })}
             className="sr-only peer" />
-          <div className="w-9 h-5 bg-cyber-border rounded-full peer peer-checked:bg-cyber-accent/40 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-cyber-muted after:peer-checked:bg-cyber-accent after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+          <div className="w-9 h-5 bg-cyber-border rounded-full peer peer-checked:bg-cyber-accent/40
+                          peer-focus-visible:ring-2 peer-focus-visible:ring-cyber-accent peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-cyber-surface after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-cyber-muted after:peer-checked:bg-cyber-accent after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
         </label>
       </div>
 
@@ -330,10 +358,10 @@ function ModelConfigCard({ name, tag, config, onChange, thresholdLabel, extraCon
         <div className="space-y-3">
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm text-cyber-muted">{thresholdLabel}</label>
-              <span className="text-sm font-mono text-cyber-accent">{config.threshold.toFixed(2)}</span>
+              <label htmlFor={sliderId} className="text-sm text-cyber-muted">{thresholdLabel}</label>
+              <span className="text-sm font-mono text-cyber-accent" aria-hidden="true">{config.threshold.toFixed(2)}</span>
             </div>
-            <input type="range" min="0" max="1" step="0.05" value={config.threshold}
+            <input id={sliderId} type="range" min="0" max="1" step="0.1" value={config.threshold}
               onChange={(e) => onChange({ ...config, threshold: Number(e.target.value) })}
               className="w-full mt-1.5 accent-cyber-accent h-1.5 cursor-pointer" />
           </div>
@@ -354,7 +382,7 @@ function ModelResultCard({ title, safe, label, score, scoreLabel, threshold, lat
   return (
     <div className={`panel ${safe ? 'border-cyber-green/20 shadow-glow-green' : 'border-cyber-danger/20 shadow-glow-red'}`}>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-[15px] font-semibold text-cyber-text">{title}</h4>
+        <h3 className="text-[15px] font-semibold text-cyber-text">{title}</h3>
         {latencyMs !== undefined && <LatencyBadge ms={latencyMs} />}
       </div>
       <div className="flex items-center justify-between mb-4">
@@ -381,8 +409,12 @@ function ModelResultCard({ title, safe, label, score, scoreLabel, threshold, lat
 }
 
 function LatencyBadge({ ms }: { ms: number }) {
-  const cls = ms < 150 ? 'text-cyber-green' : ms < 500 ? 'text-amber-400' : 'text-cyber-danger'
-  return <span className={`text-xs font-mono ${cls}`} title="inference time">⏱ {ms.toFixed(0)} ms</span>
+  const cls = ms < 150 ? 'text-cyber-green' : ms < 500 ? 'text-cyber-warning' : 'text-cyber-danger'
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-mono ${cls}`} title="inference time">
+      <ClockIcon className="w-3.5 h-3.5" aria-hidden="true" />{ms.toFixed(0)} ms
+    </span>
+  )
 }
 
 function ScoreCell({ label, value, color }: { label: string; value: number; color: string }) {
@@ -398,6 +430,8 @@ function ScoreCell({ label, value, color }: { label: string; value: number; colo
 
 function AvailableModelsTab() {
   const { t } = useTranslation()
+  const mafInfo = useMafGuardInfo()
+  const mafName = mafGuardName(mafInfo?.version)
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4">
@@ -405,16 +439,16 @@ function AvailableModelsTab() {
           name="Proventra mDeBERTa v3"
           modelId="proventra/mdeberta-v3-base-prompt-injection"
           specs={[
-            [t('prompt.architecture'), 'mDeBERTa-v3-base (~300M params)'],
-            [t('prompt.runtime'), 'PyTorch (Safetensors)'],
-            [t('prompt.modelLanguages'), '100+ (multilingual backbone)'],
-            [t('prompt.classes'), '2 — Safe / Injection'],
-            [t('prompt.size'), '~300 MB'],
-            [t('prompt.license'), 'MIT'],
+            [t('prompt.architecture'), t('prompt.m.proventra.arch')],
+            [t('prompt.runtime'), t('prompt.m.proventra.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.proventra.langs')],
+            [t('prompt.classes'), t('prompt.m.proventra.classes')],
+            [t('prompt.size'), t('prompt.m.proventra.size')],
+            [t('prompt.license'), t('prompt.m.proventra.license')],
             [t('prompt.maxTokens'), '512'],
           ]}
-          strengths={['Weighted loss (2x on injection) — fewer missed attacks', 'Trained on nested injections in realistic content', 'MIT license — no gating or restrictions', 'Multilingual via mDeBERTa backbone']}
-          limitations={['No published F1/recall benchmarks', 'Binary only — no jailbreak differentiation', 'Relatively new with smaller community']}
+          strengths={['s1', 's2', 's3', 's4'].map(k => t(`prompt.m.proventra.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.proventra.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -423,17 +457,17 @@ function AvailableModelsTab() {
           name="ModernGuard-1"
           modelId="guardion/ModernGuard-1"
           specs={[
-            [t('prompt.architecture'), 'ModernBERT / mmBERT-base (~307M params)'],
-            [t('prompt.runtime'), 'PyTorch (Safetensors)'],
-            [t('prompt.modelLanguages'), '1,080 (fine-tuned on 11 incl. ZH, AR, JA)'],
-            [t('prompt.classes'), '2 — Safe / Injection'],
-            [t('prompt.size'), '~1.2 GB'],
-            [t('prompt.f1Score'), '0.963 (vendor leaderboard, Jan 2026)'],
-            [t('prompt.license'), 'Apache-2.0'],
-            [t('prompt.maxTokens'), '8192 (2048 used)'],
+            [t('prompt.architecture'), t('prompt.m.modernguard.arch')],
+            [t('prompt.runtime'), t('prompt.m.modernguard.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.modernguard.langs')],
+            [t('prompt.classes'), t('prompt.m.modernguard.classes')],
+            [t('prompt.size'), t('prompt.m.modernguard.size')],
+            [t('prompt.f1Score'), t('prompt.m.modernguard.f1')],
+            [t('prompt.license'), t('prompt.m.modernguard.license')],
+            [t('prompt.maxTokens'), t('prompt.m.modernguard.maxTokens')],
           ]}
-          strengths={['Long context — scans whole RAG documents without chunking', 'Covers direct jailbreaks and indirect (data) injections', 'Energy-based loss — low FPR on out-of-distribution text', 'Gemma-2 tokenizer resists unicode / whitespace obfuscation']}
-          limitations={['Vendor-reported benchmarks only (Jan 2026)', 'Largest model in the set — slower on CPU', 'No explicit Malay fine-tuning data']}
+          strengths={['s1', 's2', 's3', 's4'].map(k => t(`prompt.m.modernguard.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.modernguard.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -442,35 +476,35 @@ function AvailableModelsTab() {
           name="Wolf Defender v2"
           modelId="patronus-studio/wolf-defender-prompt-injection"
           specs={[
-            [t('prompt.architecture'), 'ModernBERT / mmBERT-base'],
-            [t('prompt.runtime'), 'PyTorch (ONNX FP16/INT8 also available)'],
-            [t('prompt.modelLanguages'), 'Multilingual (mmBERT backbone; EN/DE primary)'],
-            [t('prompt.classes'), '2 — Benign / Injection'],
-            [t('prompt.size'), '~1.2 GB'],
-            [t('prompt.f1Score'), '0.951 Qualifire / 0.978 Jayavibhav'],
-            [t('prompt.license'), 'Apache-2.0'],
+            [t('prompt.architecture'), t('prompt.m.wolf.arch')],
+            [t('prompt.runtime'), t('prompt.m.wolf.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.wolf.langs')],
+            [t('prompt.classes'), t('prompt.m.wolf.classes')],
+            [t('prompt.size'), t('prompt.m.wolf.size')],
+            [t('prompt.f1Score'), t('prompt.m.wolf.f1')],
+            [t('prompt.license'), t('prompt.m.wolf.license')],
             [t('prompt.maxTokens'), '2048'],
           ]}
-          strengths={['Tuned for low false positives — 96% specificity on hard benign text', 'Published cross-model comparison incl. Sentinel v1/v2', 'Ships FP16 / INT8 ONNX variants for on-device use', '2k context — handles long documents']}
-          limitations={['Trades some recall for precision (clean F1 98.4%)', 'Tokenizer config targets transformers v5 (loaded via fallback)', 'Training data mostly EN / DE']}
+          strengths={['s1', 's2', 's3', 's4'].map(k => t(`prompt.m.wolf.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.wolf.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
 
         <ModelInfoCard
-          name="EVYD Defender V3"
-          modelId="models/evyd-defender-v3 (fine-tuned from Wolf Defender v2)"
+          name={mafName}
+          modelId={t('prompt.m.evyd.modelId', { version: mafInfo?.version ?? '…' })}
           specs={[
-            [t('prompt.architecture'), 'ModernBERT / mmBERT-base, embeddings frozen'],
-            [t('prompt.runtime'), 'PyTorch (Safetensors, local)'],
-            [t('prompt.modelLanguages'), 'EN / ZH / MS (168k training rows, 30k Malay)'],
-            [t('prompt.classes'), '3 — Benign / Injection / Harmful request'],
-            [t('prompt.size'), '~1.2 GB'],
-            [t('prompt.license'), 'Internal (base: Apache-2.0)'],
-            [t('prompt.maxTokens'), '128 (training) / 2048'],
+            [t('prompt.architecture'), t('prompt.m.evyd.arch')],
+            [t('prompt.runtime'), t('prompt.m.evyd.runtime')],
+            [t('prompt.modelLanguages'), t('prompt.m.evyd.langs')],
+            [t('prompt.classes'), t('prompt.m.evyd.classes')],
+            [t('prompt.size'), t('prompt.m.evyd.size')],
+            [t('prompt.license'), t('prompt.m.evyd.license')],
+            [t('prompt.maxTokens'), t('prompt.m.evyd.maxTokens')],
           ]}
-          strengths={['168k samples: EN + ZH public injection / jailbreak / harmful sets, 30k machine-translated Malay, real app traffic', 'Two-stage training: broad corpus, then domain adaptation on real inputs', 'Malay: 98.9% injection recall at 0.7% FPR on translated hold-out', 'Held-out FPR / recall per split in models/*/eval_report.json']}
-          limitations={['Malay training data is machine-translated (NLLB-1.3B, similarity-filtered)', 'Must be retrained as traffic changes (training/train.py)', 'Requires the local checkpoint to be mounted (MAF_GUARD_MODEL_PATH)']}
+          strengths={['s1', 's2', 's3', 's4', 's5'].map(k => t(`prompt.m.evyd.${k}`))}
+          limitations={['l1', 'l2', 'l3'].map(k => t(`prompt.m.evyd.${k}`))}
           strengthsLabel={t('prompt.strengths')}
           limitationsLabel={t('prompt.limitations')}
         />
@@ -487,7 +521,7 @@ function ModelInfoCard({ name, modelId, specs, strengths, limitations, strengths
   return (
     <div className="panel space-y-5">
       <div>
-        <h3 className="text-base font-bold text-cyber-text tracking-tight">{name}</h3>
+        <h2 className="text-base font-bold text-cyber-text tracking-tight">{name}</h2>
         <p className="text-sm text-cyber-muted font-mono mt-1">{modelId}</p>
       </div>
 
@@ -549,8 +583,14 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
     fLabel: string; fScore: number; fMs: number
   }>>([])
 
+  const [failure, setFailure] = useState<{ failed: number; total: number; reason: string } | null>(null)
+
   const run = async () => {
     setLoading(true)
+    setFailure(null)
+    let failed = 0
+    let total = 0
+    let firstReason = ''
     const out = []
     for (const s of batchSamples) {
       const row = { text: s.text, expected: s.label, lang: s.lang, category: s.category, vLabel: '-', vScore: 0, vMs: 0, mLabel: '-', mScore: 0, mMs: 0, wLabel: '-', wScore: 0, wMs: 0, fLabel: '-', fScore: 0, fMs: 0 }
@@ -571,8 +611,10 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
           if (keys[idx] === 'v') { row.vLabel = (v.label as string).toLowerCase(); row.vScore = v.injection_score; row.vMs = v.latency_ms ?? 0 }
           if (keys[idx] === 'm') { row.mLabel = (v.label as string).toLowerCase(); row.mScore = v.injection_score; row.mMs = v.latency_ms ?? 0 }
           if (keys[idx] === 'w') { row.wLabel = (v.label as string).toLowerCase(); row.wScore = v.injection_score; row.wMs = v.latency_ms ?? 0 }
-          if (keys[idx] === 'f') { row.fLabel = (v.label as string).toLowerCase(); row.fScore = v.threat_score; row.fMs = v.latency_ms ?? 0 }
+          if (keys[idx] === 'f') { row.fLabel = (v.label as string).toLowerCase(); row.fScore = Math.max(v.injection_score, v.harmful_score); row.fMs = v.latency_ms ?? 0 }
         } else {
+          failed++
+          if (!firstReason) firstReason = errorMessage(r.reason, t)
           if (keys[idx] === 'v') row.vLabel = 'error'
           if (keys[idx] === 'm') row.mLabel = 'error'
           if (keys[idx] === 'w') row.wLabel = 'error'
@@ -580,9 +622,11 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
         }
       })
 
+      total += settled.length
       out.push(row)
     }
     setResults(out)
+    setFailure(failed > 0 ? { failed, total, reason: firstReason } : null)
     setLoading(false)
   }
 
@@ -603,6 +647,12 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
           {loading ? t('prompt.batchRunning') : t('prompt.executeBatch')}
         </button>
       </div>
+
+      {failure && (
+        <div className="panel-sm border-cyber-danger/30" role="alert">
+          <p className="text-sm text-cyber-danger">{t('prompt.batch.failures', failure)}</p>
+        </div>
+      )}
 
       {results.length > 0 && (
         <div className="panel overflow-x-auto">
@@ -631,7 +681,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.vLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.vScore.toFixed(3)}</span>
-                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.vMs.toFixed(0)}ms</span>
+                        <span className="text-[10px] font-mono text-cyber-muted">{r.vMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -640,7 +690,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.mLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.mScore.toFixed(3)}</span>
-                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.mMs.toFixed(0)}ms</span>
+                        <span className="text-[10px] font-mono text-cyber-muted">{r.mMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -649,7 +699,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.wLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.wScore.toFixed(3)}</span>
-                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.wMs.toFixed(0)}ms</span>
+                        <span className="text-[10px] font-mono text-cyber-muted">{r.wMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -658,7 +708,7 @@ function BatchEvaluation({ proventraConfig, modernguardConfig, wolfConfig, mafCo
                       <div className="flex items-center gap-2">
                         <Badge v={r.fLabel} />
                         <span className="text-xs font-mono text-cyber-muted">{r.fScore.toFixed(3)}</span>
-                        <span className="text-[10px] font-mono text-cyber-muted/70">{r.fMs.toFixed(0)}ms</span>
+                        <span className="text-[10px] font-mono text-cyber-muted">{r.fMs.toFixed(0)}ms</span>
                       </div>
                     </td>
                   )}
@@ -686,9 +736,12 @@ interface DatasetInfo {
   id: string; name: string; description: string; samples: number
   languages: string[]; labels: string[]; license: string
   citation: string; downloads_monthly: number; category: string
+  name_zh?: string; description_zh?: string; category_zh?: string
+  overlap_v4?: number | null
 }
 
 interface BenchmarkModelMetrics {
+  version?: string  // model release used for this run (EVYD Defender)
   accuracy: number; precision: number; recall: number; f1_score: number
   false_positive_rate: number; false_negative_rate: number
   confusion_matrix: { tp: number; fp: number; tn: number; fn: number }
@@ -751,9 +804,16 @@ function saveBenchState(state: { selectedModels: string[]; maxSamples: number; t
 }
 
 function BenchmarkTab() {
-  const { t } = useTranslation()
+  const mafName = useMafGuardName()
+  const { t, lang } = useTranslation()
+  // dataset metadata lives in the backend registry; fall back to English when a zh field is missing
+  const ds_ = (d: DatasetInfo, f: 'name' | 'description' | 'category') =>
+    (lang === 'zh' ? d[`${f}_zh` as const] : undefined) || d[f]
   const saved = useRef(loadBenchState())
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
+  const [datasetsState, setDatasetsState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [datasetsError, setDatasetsError] = useState('')
+  const [runError, setRunError] = useState<string | null>(null)
   const [selectedDataset, setSelectedDataset] = useState<string>('')
   const [selectedModels, setSelectedModels] = useState<string[]>((saved.current?.selectedModels || ['proventra', 'modernguard', 'wolfdefender', 'mafguard']).filter((k: string) => ['proventra', 'modernguard', 'wolfdefender', 'mafguard'].includes(k)))
   const [maxSamples, setMaxSamples] = useState(saved.current?.maxSamples || 200)
@@ -767,7 +827,7 @@ function BenchmarkTab() {
     { key: 'proventra', name: 'Proventra mDeBERTa v3', defaultThreshold: 0.5 },
     { key: 'modernguard', name: 'ModernGuard-1', defaultThreshold: 0.5 },
     { key: 'wolfdefender', name: 'Wolf Defender v2', defaultThreshold: 0.5 },
-    { key: 'mafguard', name: 'EVYD Defender V3', defaultThreshold: 0.5 },
+    { key: 'mafguard', name: mafName, defaultThreshold: 0.5 },
   ]
 
   // Persist state to localStorage
@@ -775,11 +835,25 @@ function BenchmarkTab() {
     saveBenchState({ selectedModels, maxSamples, thresholds, runs })
   }, [selectedModels, maxSamples, thresholds, runs])
 
+  const fetchDatasets = () => {
+    getBenchmarkDatasets()
+      .then((data) => {
+        setDatasets(data)
+        setSelectedDataset(prev => prev || (data[0]?.id ?? ''))
+        setDatasetsState('ready')
+      })
+      .catch((err) => {
+        setDatasetsError(errorMessage(err, t))
+        setDatasetsState('error')
+      })
+  }
+  const retryDatasets = () => {
+    setDatasetsState('loading')
+    fetchDatasets()
+  }
+
   useEffect(() => {
-    getBenchmarkDatasets().then((data) => {
-      setDatasets(data)
-      if (data.length > 0 && !selectedDataset) setSelectedDataset(data[0].id)
-    })
+    fetchDatasets()
     // Resume polling for any in-progress runs from saved state
     const inProgress = (saved.current?.runs || []).filter((r: BenchmarkRunResult) => r.status === 'running' || r.status === 'pending')
     inProgress.forEach((r: BenchmarkRunResult) => pollStatus(r.id))
@@ -813,9 +887,10 @@ function BenchmarkTab() {
           setLoading(false)
           setNotification(`${t('prompt.bench.completed')}: ${result.dataset_id}`)
         }
-      } catch {
+      } catch (err) {
         delete pollTimerRef.current[id]
         setLoading(false)
+        setRunError(t('prompt.bench.pollFailed', { id, reason: errorMessage(err, t) }))
       }
     }
     poll()
@@ -824,6 +899,7 @@ function BenchmarkTab() {
   const startRun = async () => {
     if (!selectedDataset || selectedModels.length === 0) return
     setLoading(true)
+    setRunError(null)
     try {
       const { run_id } = await startBenchmark(selectedDataset, selectedModels, maxSamples, thresholds)
       const placeholder: BenchmarkRunResult = {
@@ -833,8 +909,9 @@ function BenchmarkTab() {
       }
       setRuns(prev => [placeholder, ...prev])
       pollStatus(run_id)
-    } catch {
+    } catch (err) {
       setLoading(false)
+      setRunError(t('prompt.bench.startFailed', { reason: errorMessage(err, t) }))
     }
   }
 
@@ -863,7 +940,19 @@ function BenchmarkTab() {
           {/* Left: Dataset picker */}
           <div>
             <label className="text-xs font-semibold text-cyber-muted uppercase tracking-wider">{t('prompt.bench.selectDataset')}</label>
-            <div className="space-y-1 mt-2 max-h-[200px] overflow-y-auto pr-1">
+            <div className="space-y-1 mt-2 max-h-[200px] overflow-y-auto pr-1" aria-busy={datasetsState === 'loading'}>
+              {datasetsState === 'loading' && (
+                <p className="px-3 py-2 text-sm text-cyber-muted">{t('prompt.bench.datasetsLoading')}</p>
+              )}
+              {datasetsState === 'error' && (
+                <div className="px-3 py-2 space-y-2" role="alert">
+                  <p className="text-sm text-cyber-danger">{t('prompt.bench.datasetsError', { reason: datasetsError })}</p>
+                  <button onClick={retryDatasets} className="btn-ghost text-sm px-3 py-1">{t('prompt.bench.retry')}</button>
+                </div>
+              )}
+              {datasetsState === 'ready' && datasets.length === 0 && (
+                <p className="px-3 py-2 text-sm text-cyber-muted">{t('prompt.bench.datasetsEmpty')}</p>
+              )}
               {datasets.map(ds => (
                 <button key={ds.id} onClick={() => setSelectedDataset(ds.id)}
                   className={`w-full text-left px-3 py-2 rounded-md border transition-all ${
@@ -872,12 +961,17 @@ function BenchmarkTab() {
                       : 'border-transparent hover:bg-white/[0.02]'
                   }`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-cyber-text">{ds.name}</span>
+                    <span className="text-sm font-medium text-cyber-text">{ds_(ds, 'name')}</span>
                     <span className="text-xs text-cyber-muted">{ds.samples.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-cyber-accent">{ds.category}</span>
+                    <span className="text-xs text-cyber-accent">{ds_(ds, 'category')}</span>
                     <span className="text-xs text-cyber-muted">{ds.languages.join('/')}</span>
+                    {(ds.overlap_v4 ?? 0) >= 0.3 && (
+                      <span className="text-xs text-cyber-warning" title={t('prompt.bench.overlapHint')}>
+                        {t('prompt.bench.overlapBadge', { pct: Math.round((ds.overlap_v4 ?? 0) * 100) })}
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -888,16 +982,21 @@ function BenchmarkTab() {
           {selectedInfo && (
             <div className="space-y-2 text-sm">
               <div>
-                <span className="font-semibold text-cyber-text">{selectedInfo.name}</span>
+                <span className="font-semibold text-cyber-text">{ds_(selectedInfo, 'name')}</span>
                 <span className="text-xs text-cyber-muted font-mono ml-2">{selectedInfo.id}</span>
               </div>
-              <p className="text-xs text-cyber-text/70 leading-relaxed">{selectedInfo.description}</p>
+              <p className="text-xs text-cyber-text/70 leading-relaxed">{ds_(selectedInfo, 'description')}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 <div><span className="text-cyber-muted">{t('prompt.bench.samples')}:</span> <span className="text-cyber-text">{selectedInfo.samples.toLocaleString()}</span></div>
                 <div><span className="text-cyber-muted">{t('prompt.bench.license')}:</span> <span className="text-cyber-text">{selectedInfo.license}</span></div>
                 <div><span className="text-cyber-muted">{t('prompt.bench.languages')}:</span> <span className="text-cyber-text">{selectedInfo.languages.join(', ')}</span></div>
                 <div><span className="text-cyber-muted">{t('prompt.bench.downloads')}:</span> <span className="text-cyber-text">{selectedInfo.downloads_monthly.toLocaleString()}/mo</span></div>
               </div>
+              {(selectedInfo.overlap_v4 ?? 0) >= 0.3 && (
+                <div className="text-xs text-cyber-warning leading-relaxed">
+                  {t('prompt.bench.overlapWarn', { pct: Math.round((selectedInfo.overlap_v4 ?? 0) * 100) })}
+                </div>
+              )}
               <div className="text-xs text-cyber-muted italic">{selectedInfo.citation}</div>
             </div>
           )}
@@ -927,10 +1026,19 @@ function BenchmarkTab() {
               <option value={200}>200</option>
               <option value={500}>500</option>
               <option value={1000}>1000</option>
+              <option value={2000}>2000</option>
+              <option value={5000}>5000</option>
+              <option value={10000}>10000</option>
             </select>
           </div>
-          <button onClick={startRun} disabled={loading || selectedModels.length === 0}
-            className="btn-primary ml-auto text-sm px-4 py-1.5">
+          {!loading && (!selectedDataset || selectedModels.length === 0) && (
+            <span id="bench-run-hint" className="ml-auto text-xs text-cyber-muted">
+              {t(!selectedDataset ? 'prompt.bench.needDataset' : 'prompt.bench.needModel')}
+            </span>
+          )}
+          <button onClick={startRun} disabled={loading || !selectedDataset || selectedModels.length === 0}
+            aria-describedby={!selectedDataset || selectedModels.length === 0 ? 'bench-run-hint' : undefined}
+            className={`btn-primary text-sm px-4 py-1.5 ${!loading && (!selectedDataset || selectedModels.length === 0) ? '' : 'ml-auto'}`}>
             {loading ? t('prompt.bench.running') : t('prompt.bench.start')}
           </button>
         </div>
@@ -943,11 +1051,11 @@ function BenchmarkTab() {
                 <span className="text-xs text-cyber-muted truncate">{m.name.split(' ')[0]}</span>
               </div>
               <div className="flex items-center gap-2">
-                <input type="range" min="0" max="1" step="0.0000001"
+                <input type="range" min="0" max="1" step="0.1"
                   value={thresholds[m.key]}
                   onChange={e => setThresholds(prev => ({ ...prev, [m.key]: Number(e.target.value) }))}
                   className="flex-1 accent-cyber-accent h-1 cursor-pointer" />
-                <input type="number" min="0" max="1" step="0.0000001"
+                <input type="number" min="0" max="1" step="0.1"
                   value={thresholds[m.key]}
                   onChange={e => { const v = Number(e.target.value); if (v >= 0 && v <= 1) setThresholds(prev => ({ ...prev, [m.key]: v })) }}
                   className="w-24 bg-cyber-bg border border-cyber-border rounded px-1 py-0.5 text-xs font-mono text-cyber-accent text-center" />
@@ -973,11 +1081,25 @@ function BenchmarkTab() {
         }}
       />
 
+      {/* Run failures stay until dismissed: they need reading, unlike the success toast */}
+      {runError && (
+        <div className="panel-sm border-cyber-danger/30 flex items-start justify-between gap-3" role="alert">
+          <span className="text-sm text-cyber-danger">{runError}</span>
+          <button onClick={() => setRunError(null)} aria-label={t('common.dismiss')}
+            className="text-cyber-muted hover:text-cyber-text cursor-pointer flex-shrink-0">
+            <XMarkIcon className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       {/* Notification */}
       {notification && (
-        <div className="panel-sm border-cyber-green/30 bg-cyber-green/[0.05] flex items-center justify-between">
+        <div className="panel-sm border-cyber-green/30 bg-cyber-green/[0.05] flex items-center justify-between" role="status">
           <span className="text-sm text-cyber-green font-medium">{notification}</span>
-          <button onClick={() => setNotification(null)} className="text-cyber-muted hover:text-cyber-text text-sm">x</button>
+          <button onClick={() => setNotification(null)} aria-label={t('common.dismiss')}
+            className="text-cyber-muted hover:text-cyber-text cursor-pointer">
+            <XMarkIcon className="w-4 h-4" aria-hidden="true" />
+          </button>
         </div>
       )}
 
@@ -1032,7 +1154,7 @@ function UploadBenchmark({ selectedModels, thresholds, onStarted }: {
 }) {
   const { t } = useTranslation()
   const [uploading, setUploading] = useState(false)
-  const [uploadInfo, setUploadInfo] = useState<string | null>(null)
+  const [uploadInfo, setUploadInfo] = useState<{ text: string; error: boolean } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1042,10 +1164,10 @@ function UploadBenchmark({ selectedModels, thresholds, onStarted }: {
     setUploadInfo(null)
     try {
       const result = await uploadAndRunBenchmark(file, selectedModels, thresholds)
-      setUploadInfo(`${file.name}: ${result.samples_count} samples, ${result.has_labels ? 'labeled' : 'unlabeled'}`)
+      setUploadInfo({ text: `${file.name}: ${result.samples_count} samples, ${result.has_labels ? 'labeled' : 'unlabeled'}`, error: false })
       onStarted(result.run_id, result.dataset_id)
     } catch (err) {
-      setUploadInfo(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setUploadInfo({ text: errorMessage(err, t), error: true })
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -1063,7 +1185,11 @@ function UploadBenchmark({ selectedModels, thresholds, onStarted }: {
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} disabled={uploading || selectedModels.length === 0} className="hidden" />
         </label>
         <span className="text-xs text-cyber-muted">{t('prompt.bench.uploadHint')}</span>
-        {uploadInfo && <span className="text-xs text-cyber-text ml-auto">{uploadInfo}</span>}
+        {uploadInfo && (
+          <span className={`text-xs ml-auto ${uploadInfo.error ? 'text-cyber-danger' : 'text-cyber-text'}`} role={uploadInfo.error ? 'alert' : undefined}>
+            {uploadInfo.text}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -1076,7 +1202,8 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
     proventra: 'Proventra mDeBERTa v3',
     modernguard: 'ModernGuard-1',
     wolfdefender: 'Wolf Defender v2',
-    mafguard: 'EVYD Defender V3',
+    // name the release that produced the run, not the one loaded now
+    mafguard: mafGuardName(results.models.mafguard?.version),
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)
@@ -1118,7 +1245,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
         <div className="panel border-cyber-green/30 bg-cyber-green/[0.03]">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-cyber-green">{t('prompt.bench.verdict')}</h3>
+              <h2 className="text-base font-bold text-cyber-green">{t('prompt.bench.verdict')}</h2>
               <p className="text-sm text-cyber-text mt-1">
                 <span className="font-bold">{modelNames[winner]}</span> — {t('prompt.bench.verdictScore')}: <span className="font-mono text-cyber-green">{(scores[winner].composite * 100).toFixed(1)}</span>
               </p>
@@ -1154,7 +1281,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                 </span>
               )}
               {results.sample_distribution.injection > 0 && (
-                <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 font-medium">
+                <span className="px-2 py-1 rounded bg-cyber-danger/10 text-cyber-danger font-medium">
                   {t('prompt.bench.injectionSamples')}: {results.sample_distribution.injection}
                 </span>
               )}
@@ -1172,7 +1299,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
           {models.map(([key, m]) => (
             <div key={key} className={`panel-sm ${key === winner ? 'border-cyber-green/30 ring-1 ring-cyber-green/20' : 'border-cyber-accent/10'}`}>
               <div className="flex items-center justify-between mb-1">
-                <h4 className="text-[15px] font-bold text-cyber-text">{modelNames[key] || key}</h4>
+                <h3 className="text-[15px] font-bold text-cyber-text">{modelNames[key] || key}</h3>
                 {key === winner && <span className="badge-safe text-xs">BEST</span>}
               </div>
               {/* Threshold used */}
@@ -1186,7 +1313,7 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <MetricCell label={t('prompt.bench.totalSamples')} value={`${m.total_samples}`} color="text-cyber-text" />
                     <MetricCell label={t('prompt.bench.detectionRate')} value={`${((m.detection_rate || 0) * 100).toFixed(1)}%`} color="text-cyber-accent" />
-                    <MetricCell label={t('prompt.bench.flagged')} value={`${m.detected_injection || 0}`} color="text-amber-400" />
+                    <MetricCell label={t('prompt.bench.flagged')} value={`${m.detected_injection || 0}`} color="text-cyber-warning" />
                     <MetricCell label={t('prompt.bench.passed')} value={`${m.detected_benign || 0}`} color="text-cyber-green" />
                   </div>
                 </>
@@ -1194,23 +1321,23 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
                 <>
                   {/* Key metrics */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <MetricCell label={t('prompt.bench.accuracy')} value={`${(m.accuracy * 100).toFixed(1)}%`} color={m.accuracy > 0.9 ? 'text-cyber-green' : m.accuracy > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
-                    <MetricCell label={t('prompt.bench.f1')} value={`${(m.f1_score * 100).toFixed(1)}%`} color={m.f1_score > 0.9 ? 'text-cyber-green' : m.f1_score > 0.7 ? 'text-amber-400' : 'text-cyber-danger'} />
+                    <MetricCell label={t('prompt.bench.accuracy')} value={`${(m.accuracy * 100).toFixed(1)}%`} color={m.accuracy > 0.9 ? 'text-cyber-green' : m.accuracy > 0.7 ? 'text-cyber-warning' : 'text-cyber-danger'} />
+                    <MetricCell label={t('prompt.bench.f1')} value={`${(m.f1_score * 100).toFixed(1)}%`} color={m.f1_score > 0.9 ? 'text-cyber-green' : m.f1_score > 0.7 ? 'text-cyber-warning' : 'text-cyber-danger'} />
                     <MetricCell label={t('prompt.bench.precision')} value={`${(m.precision * 100).toFixed(1)}%`} color="text-cyber-text" />
                     <MetricCell label={t('prompt.bench.recall')} value={`${(m.recall * 100).toFixed(1)}%`} color="text-cyber-text" />
                   </div>
 
                   {/* Error rates */}
                   <div className="grid grid-cols-2 gap-3 mb-4 pt-3 border-t border-cyber-border/30">
-                    <MetricCell label={t('prompt.bench.fpr')} value={`${(m.false_positive_rate * 100).toFixed(1)}%`} color="text-amber-400" />
+                    <MetricCell label={t('prompt.bench.fpr')} value={`${(m.false_positive_rate * 100).toFixed(1)}%`} color="text-cyber-warning" />
                     <MetricCell label={t('prompt.bench.fnr')} value={`${(m.false_negative_rate * 100).toFixed(1)}%`} color="text-cyber-danger" />
                   </div>
 
                   {/* Confusion matrix */}
                   <div className="grid grid-cols-2 gap-1 text-center text-xs mb-4 pt-3 border-t border-cyber-border/30">
                     <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tp}</div><div className="text-cyber-muted">TP</div></div>
-                    <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fp}</div><div className="text-cyber-muted">FP</div></div>
-                    <div className="bg-red-500/10 p-2 rounded"><div className="font-mono font-bold text-red-400">{m.confusion_matrix.fn}</div><div className="text-cyber-muted">FN</div></div>
+                    <div className="bg-cyber-danger/10 p-2 rounded"><div className="font-mono font-bold text-cyber-danger">{m.confusion_matrix.fp}</div><div className="text-cyber-muted">FP</div></div>
+                    <div className="bg-cyber-danger/10 p-2 rounded"><div className="font-mono font-bold text-cyber-danger">{m.confusion_matrix.fn}</div><div className="text-cyber-muted">FN</div></div>
                     <div className="bg-cyber-green/10 p-2 rounded"><div className="font-mono font-bold text-cyber-green">{m.confusion_matrix.tn}</div><div className="text-cyber-muted">TN</div></div>
                   </div>
                 </>

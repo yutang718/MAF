@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """应用配置类"""
     PROJECT_NAME: str = "EvydGuard"
     PROJECT_DESCRIPTION: str = "AI Safety Guard API"
-    VERSION: str = "1.0.0"
+    VERSION: str = "2.0.0"
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     
     # API配置
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     
     # DeepSeek API settings
-    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "sk-ee2ee84b13384efa9594eda1d1c2f02e")
+    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
     
     TRANSFORMERS_VERBOSITY: str = "error"
     PYTHONWARNINGS: str = "ignore::UserWarning"

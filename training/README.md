@@ -96,6 +96,26 @@ appear in `eval_report.json`.
 v4 at 0.9: consult held-out 1 / 2000 blocked (v3: 60 / 10000 on the full set), authz harmful
 recall 0.88, real / public / external within ±0.3% FPR of v3.
 
+## 2d. v5 / v5.2: QA red-team set
+
+`data/redteam/qa_redteam_en.jsonl` is the QA team's labelled red-team list; `qa_benign.jsonl`
+(v5.2) adds 22 consult / prescription-refill / wearable requests (ZH from QA, EN/MS added) that
+v5 blocked as injection. QA had labelled the EN versions of 12 of them `injection`; they are
+not prompt injection (no attempt to override instructions), so v5.2 relabels them `benign`, and
+the two "all patients' records" items (`redteam-47`, `redteam-79`) `harmful_request`. Each
+red-team file is split 80/20 on its own, so adding a file keeps the earlier test split.
+
+```bash
+venv/bin/python training/build_dataset_v4.py --out data/v5
+venv/bin/python training/train.py --dataset-dir data/v5 --base-model models/evyd-defender-v3-stage1 \
+    --public-frac 0.1 --domain-repeat 4 --domain-attack-repeat 8 --source-repeat consult=2 redteam=8 \
+    --lr 1e-5 --epochs 1 --max-length 128 --output-dir models/evyd-defender-v5.2
+```
+
+v5.2 at injection threshold 0.5: the 24 QA requests flagged as injection 10 -> 1 (the held-out
+"act as a doctor" item, 0.77); real FPR 0.9% -> 0.4%; Malay / public / external injection
+recall within 0.3 pt of v5. Still weak on "please act as a doctor" phrasing.
+
 ## 3. Publish
 
 The model lives in the private Hub repo `yutang718/evyd-defender` (version-less; each release

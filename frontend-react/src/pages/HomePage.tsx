@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useTranslation } from '../i18n/context'
+import { useMafGuardName } from '../utils/mafGuardVersion'
 
 export default function HomePage() {
   const { t } = useTranslation()
@@ -147,6 +148,7 @@ function BenchmarkSection({ t }: { t: (key: string) => string }) {
 }
 
 function TechStackSection({ t }: { t: (key: string) => string }) {
+  const mafName = useMafGuardName()
   return (
     <div className="grid grid-cols-2 gap-5">
       <div className="panel-sm">
@@ -159,7 +161,7 @@ function TechStackSection({ t }: { t: (key: string) => string }) {
             <th className="table-header">{t('home.table.size')}</th>
           </tr></thead>
           <tbody>
-            <Row cells={[t('home.pipeline.promptFineTuned'), 'EVYD Defender V4 (mmBERT)', 'PyTorch', '1.2 GB']} />
+            <Row cells={[t('home.pipeline.promptFineTuned'), `${mafName} (mmBERT)`, 'PyTorch', '1.2 GB']} />
             <Row cells={[t('home.pipeline.promptMulti'), 'Proventra mDeBERTa v3', 'PyTorch', '300 MB']} />
             <Row cells={[t('home.pipeline.promptMulti'), 'ModernGuard-1 · Wolf Defender v2', 'PyTorch', '1.2 GB ×2']} />
             <Row cells={[t('home.pipeline.pii'), 'Presidio + spaCy', 'CPU', '~200 MB']} />

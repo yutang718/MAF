@@ -134,6 +134,8 @@ async def mafguard_info(services: Services = Depends(get_services)) -> Dict[str,
     detector = services.mafguard_detector
     return {
         "model_id": detector.MODEL_ID,
+        "version": detector.version,
+        "revision": detector.revision,
         "initialized": detector._initialized,
         "default_injection_threshold": detector.injection_threshold,
         "default_harmful_threshold": detector.harmful_threshold,

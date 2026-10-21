@@ -545,6 +545,9 @@ class BenchmarkService:
 
         metrics = self._compute_metrics(predictions, expected_labels, latencies)
         metrics["details"] = details
+        # release that produced these numbers (EVYD Defender only), so stored runs keep their own version
+        if getattr(detector, "version", None):
+            metrics["version"] = detector.version
         return metrics
 
     @staticmethod

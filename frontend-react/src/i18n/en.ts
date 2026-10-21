@@ -169,8 +169,8 @@ const en: Record<string, string> = {
   'prompt.m.wolf.l1': 'Trades some recall for precision (clean F1 98.4%)',
   'prompt.m.wolf.l2': 'Tokenizer config targets transformers v5 (loaded via fallback)',
   'prompt.m.wolf.l3': 'Training data mostly EN / DE',
-  // Available models tab — EVYD Defender V4
-  'prompt.m.evyd.modelId': 'yutang718/evyd-defender @ v4 (fine-tuned from Wolf Defender v2)',
+  // Available models tab — EVYD Defender ({version} is the release tag the backend loaded from the Hub)
+  'prompt.m.evyd.modelId': 'yutang718/evyd-defender @ {version} (fine-tuned from Wolf Defender v2)',
   'prompt.m.evyd.arch': 'ModernBERT / mmBERT-base, embeddings frozen',
   'prompt.m.evyd.runtime': 'PyTorch (Safetensors, local)',
   'prompt.m.evyd.langs': 'EN / ZH / MS (168k training rows, 30k Malay)',
@@ -180,7 +180,7 @@ const en: Record<string, string> = {
   'prompt.m.evyd.maxTokens': '128 (training) / 2048',
   'prompt.m.evyd.s1': '168k samples: EN + ZH public injection / jailbreak / harmful sets, 30k machine-translated Malay, real app traffic',
   'prompt.m.evyd.s2': 'Two-stage training: broad corpus, then domain adaptation on real inputs',
-  'prompt.m.evyd.s3': 'V4 adds 10k benign consult questions (EN / ZH / MS) plus an unauthorized-access set: 1 / 2000 consult false positives at threshold 0.9, and 0.95 harmful recall on the held-out authz split',
+  'prompt.m.evyd.s3': 'V4 adds 10k benign consult questions (EN / ZH / MS) plus an unauthorized-access set (1 / 2000 consult false positives at 0.9); V5 adds the QA red-team list, so medical questions phrased as first-person consults are no longer flagged as injection',
   'prompt.m.evyd.s4': 'Malay: 98.9% injection recall at 0.7% FPR on the translated hold-out',
   'prompt.m.evyd.s5': 'Held-out FPR / recall per split in models/*/eval_report.json',
   'prompt.m.evyd.l1': 'Malay training data is machine-translated (NLLB-1.3B, similarity-filtered)',
@@ -202,7 +202,7 @@ const en: Record<string, string> = {
   'prompt.bench.config': 'Benchmark Configuration',
   'prompt.bench.overlapBadge': '{pct}% in training',
   'prompt.bench.overlapHint': 'This dataset overlaps the EVYD Defender training corpus',
-  'prompt.bench.overlapWarn': '{pct}% of this dataset is in the EVYD Defender V4 training corpus. Its scores for EVYD Defender measure memorisation, not detection — the other models are unaffected.',
+  'prompt.bench.overlapWarn': '{pct}% of this dataset is in the EVYD Defender training corpus. Its scores for EVYD Defender measure memorisation, not detection — the other models are unaffected.',
   'prompt.bench.maxSamples': 'Max Samples',
   'prompt.bench.start': 'Run Benchmark',
   'prompt.bench.running': 'Benchmarking...',

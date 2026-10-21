@@ -148,6 +148,8 @@ class MafGuardDetector(MmBertInjectionDetector):
         path = os.getenv("MAF_GUARD_MODEL_PATH", self.DEFAULT_PATH)
         super().__init__(path, "EVYD Defender")
         self.classes = ["BENIGN", "INJECTION", "HARMFUL_REQUEST"]
+        self.revision = None  # Hub commit of the loaded weights
+        self.version = None   # release tag, see _resolve_version
         self.injection_threshold = float(os.getenv("MAF_GUARD_INJECTION_THRESHOLD", "0.5"))
         self.harmful_threshold = float(os.getenv("MAF_GUARD_HARMFUL_THRESHOLD", "0.5"))
 
@@ -158,6 +160,36 @@ class MafGuardDetector(MmBertInjectionDetector):
             raise FileNotFoundError(f"no trained model at {self.MODEL_ID} (run training/train.py)")
         super().initialize()
         self.classes = [self.model.config.id2label[i] for i in range(self.model.config.num_labels)]
+        self.revision = getattr(self.model.config, "_commit_hash", None)
+        self.version = self._resolve_version()
+        logger.info(f"{self.name} version {self.version} (revision {self.revision})")
+
+    def _resolve_version(self) -> str:
+        """Release tag of the loaded weights, e.g. "v5".
+
+        Hub: the tag pointing at the loaded commit (the repo id is version-less, so the tag is the
+        only place the version lives); "main@<sha>" if no tag matches or the Hub is unreachable.
+        Local checkpoint: the trailing "vN[.M]" of the directory name, else the name itself.
+        """
+        import os
+        import re
+        if os.path.isdir(self.MODEL_ID):
+            name = os.path.basename(os.path.normpath(self.MODEL_ID))
+            m = re.search(r"v\d+(\.\d+)*$", name)
+            return m.group(0) if m else name
+        short = (self.revision or "unknown")[:7]
+        try:
+            from huggingface_hub import HfApi
+            api = HfApi()
+            # target_commit of an annotated tag is the tag object, not the commit; resolve each tag
+            tags = [t.name for t in api.list_repo_refs(self.MODEL_ID).tags
+                    if api.model_info(self.MODEL_ID, revision=t.name).sha == self.revision]
+        except Exception as e:
+            logger.warning(f"{self.name}: could not resolve Hub tags ({e})")
+            tags = []
+        # several tags can share a commit; the last in version order is the release name
+        tags.sort(key=lambda t: [int(x) for x in re.findall(r"\d+", t)])
+        return tags[-1] if tags else f"main@{short}"
 
     def _scores(self, probs) -> Dict[str, float]:
         return {label: round(float(p), 4) for label, p in zip(self.classes, probs)}

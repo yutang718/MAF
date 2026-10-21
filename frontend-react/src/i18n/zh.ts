@@ -169,8 +169,8 @@ const zh: Record<string, string> = {
   'prompt.m.wolf.l1': '以部分召回率换取精确率（干净集 F1 98.4%）',
   'prompt.m.wolf.l2': '分词器配置面向 transformers v5（通过回退方式加载）',
   'prompt.m.wolf.l3': '训练数据以英语 / 德语为主',
-  // 可用模型 — EVYD Defender V4
-  'prompt.m.evyd.modelId': 'yutang718/evyd-defender @ v4（基于 Wolf Defender v2 微调）',
+  // 可用模型 — EVYD Defender（{version} 为后端从 Hub 加载到的版本标签）
+  'prompt.m.evyd.modelId': 'yutang718/evyd-defender @ {version}（基于 Wolf Defender v2 微调）',
   'prompt.m.evyd.arch': 'ModernBERT / mmBERT-base，冻结词嵌入层',
   'prompt.m.evyd.runtime': 'PyTorch（Safetensors，本地加载）',
   'prompt.m.evyd.langs': '英 / 中 / 马来语（16.8 万条训练数据，其中 3 万条马来语）',
@@ -180,7 +180,7 @@ const zh: Record<string, string> = {
   'prompt.m.evyd.maxTokens': '128（训练）/ 2048',
   'prompt.m.evyd.s1': '16.8 万条样本：中英文公开注入 / 越狱 / 有害数据集、3 万条机器翻译马来语、真实业务流量',
   'prompt.m.evyd.s2': '两阶段训练：先在大规模语料上训练，再用真实输入做领域适配',
-  'prompt.m.evyd.s3': 'V4 新增 1 万条正常问诊问题（中 / 英 / 马来语）与越权访问数据集：阈值 0.9 下问诊留出集仅 1/2000 误拦，越权留出集有害请求召回率 0.95',
+  'prompt.m.evyd.s3': 'V4 新增 1 万条正常问诊问题（中 / 英 / 马来语）与越权访问数据集（阈值 0.9 下问诊留出集仅 1/2000 误拦）；V5 加入 QA 红队清单，第一人称描述病情的医疗咨询不再被误判为注入',
   'prompt.m.evyd.s4': '马来语：翻译留出集上注入召回率 98.9%，误报率 0.7%',
   'prompt.m.evyd.s5': '各留出集的误报率 / 召回率详见 models/*/eval_report.json',
   'prompt.m.evyd.l1': '马来语训练数据为机器翻译（NLLB-1.3B，并经相似度过滤）',
@@ -202,7 +202,7 @@ const zh: Record<string, string> = {
   'prompt.bench.config': '测试配置',
   'prompt.bench.overlapBadge': '{pct}% 已训练',
   'prompt.bench.overlapHint': '该数据集与 EVYD Defender 的训练语料重叠',
-  'prompt.bench.overlapWarn': '该数据集有 {pct}% 进过 EVYD Defender V4 的训练语料。它给 EVYD Defender 的分数衡量的是记忆，不是检测能力 —— 其他模型不受影响。',
+  'prompt.bench.overlapWarn': '该数据集有 {pct}% 进过 EVYD Defender 的训练语料。它给 EVYD Defender 的分数衡量的是记忆，不是检测能力 —— 其他模型不受影响。',
   'prompt.bench.maxSamples': '最大样本数',
   'prompt.bench.start': '开始测试',
   'prompt.bench.running': '测试中...',

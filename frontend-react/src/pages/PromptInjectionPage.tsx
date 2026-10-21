@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { detectProventra, detectModernGuard, detectWolfDefender, detectMafGuard, getBenchmarkDatasets, startBenchmark, getBenchmarkRun, deleteBenchmarkRun, uploadAndRunBenchmark } from '../api/prompt'
 import { errorMessage } from '../api/client'
 import type { ProventraResult, MafGuardResult } from '../types/prompt'
+import { useMafGuardInfo, useMafGuardName, mafGuardName } from '../utils/mafGuardVersion'
 import { useTranslation } from '../i18n/context'
 
 interface ModelConfig {
@@ -62,10 +63,10 @@ export default function PromptInjectionPage() {
   const tabs = [t('prompt.tab.analysis'), t('prompt.tab.models'), t('prompt.tab.batch'), t('prompt.tab.benchmark')]
 
   // Per-model configuration
-  const [proventraConfig, setProventraConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
-  const [modernguardConfig, setModernguardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
-  const [wolfConfig, setWolfConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: 'binary' })
-  const [mafConfig, setMafConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.5, mode: '3-class' })
+  const [proventraConfig, setProventraConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: 'binary' })
+  const [modernguardConfig, setModernguardConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: 'binary' })
+  const [wolfConfig, setWolfConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: 'binary' })
+  const [mafConfig, setMafConfig] = useState<ModelConfig>({ enabled: true, threshold: 0.9, mode: '3-class' })
 
   // Determine which tab is active by index
   const tabIndex = tabs.indexOf(activeTab)
@@ -132,6 +133,7 @@ function AnalysisTab({
   mafConfig: ModelConfig; setMafConfig: (c: ModelConfig) => void
 }) {
   const { t } = useTranslation()
+  const mafName = useMafGuardName()
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [proventraResult, setProventraResult] = useState<ProventraResult | null>(null)
@@ -212,7 +214,7 @@ function AnalysisTab({
 
           {/* EVYD Defender Config (project fine-tuned) */}
           <ModelConfigCard
-            name="EVYD Defender V4"
+            name={mafName}
             tag="Fine-tuned · 3-Class"
             config={mafConfig}
             onChange={setMafConfig}
@@ -281,7 +283,7 @@ function AnalysisTab({
 
           {mafConfig.enabled && mafResult && (
             <ModelResultCard
-              title="EVYD Defender V4"
+              title={mafName}
               safe={!mafResult.is_injection && !mafResult.is_harmful_request}
               label={mafResult.label}
               score={Math.max(mafResult.injection_score, mafResult.harmful_score)}
@@ -399,6 +401,8 @@ function ScoreCell({ label, value, color }: { label: string; value: number; colo
 
 function AvailableModelsTab() {
   const { t } = useTranslation()
+  const mafInfo = useMafGuardInfo()
+  const mafName = mafGuardName(mafInfo?.version)
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4">
@@ -459,8 +463,8 @@ function AvailableModelsTab() {
         />
 
         <ModelInfoCard
-          name="EVYD Defender V4"
-          modelId={t('prompt.m.evyd.modelId')}
+          name={mafName}
+          modelId={t('prompt.m.evyd.modelId', { version: mafInfo?.version ?? '…' })}
           specs={[
             [t('prompt.architecture'), t('prompt.m.evyd.arch')],
             [t('prompt.runtime'), t('prompt.m.evyd.runtime')],
@@ -692,6 +696,7 @@ interface DatasetInfo {
 }
 
 interface BenchmarkModelMetrics {
+  version?: string  // model release used for this run (EVYD Defender)
   accuracy: number; precision: number; recall: number; f1_score: number
   false_positive_rate: number; false_negative_rate: number
   confusion_matrix: { tp: number; fp: number; tn: number; fn: number }
@@ -754,6 +759,7 @@ function saveBenchState(state: { selectedModels: string[]; maxSamples: number; t
 }
 
 function BenchmarkTab() {
+  const mafName = useMafGuardName()
   const { t, lang } = useTranslation()
   // dataset metadata lives in the backend registry; fall back to English when a zh field is missing
   const ds_ = (d: DatasetInfo, f: 'name' | 'description' | 'category') =>
@@ -773,7 +779,7 @@ function BenchmarkTab() {
     { key: 'proventra', name: 'Proventra mDeBERTa v3', defaultThreshold: 0.5 },
     { key: 'modernguard', name: 'ModernGuard-1', defaultThreshold: 0.5 },
     { key: 'wolfdefender', name: 'Wolf Defender v2', defaultThreshold: 0.5 },
-    { key: 'mafguard', name: 'EVYD Defender V4', defaultThreshold: 0.5 },
+    { key: 'mafguard', name: mafName, defaultThreshold: 0.5 },
   ]
 
   // Persist state to localStorage
@@ -1095,7 +1101,8 @@ function BenchmarkResults({ results }: { results: BenchmarkResultsData }) {
     proventra: 'Proventra mDeBERTa v3',
     modernguard: 'ModernGuard-1',
     wolfdefender: 'Wolf Defender v2',
-    mafguard: 'EVYD Defender V4',
+    // name the release that produced the run, not the one loaded now
+    mafguard: mafGuardName(results.models.mafguard?.version),
   }
 
   const models = Object.entries(results.models).filter(([, v]) => !v.error)

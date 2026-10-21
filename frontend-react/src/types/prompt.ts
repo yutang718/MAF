@@ -24,3 +24,10 @@ export interface MafGuardResult {
   scores: { BENIGN: number; INJECTION: number; HARMFUL_REQUEST: number }
   latency_ms?: number
 }
+
+export interface MafGuardInfo {
+  model_id: string
+  version: string | null   // release tag resolved from the Hub, e.g. "v5"
+  revision: string | null  // Hub commit of the loaded weights
+  initialized: boolean
+}

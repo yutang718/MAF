@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { ProventraResult, MafGuardResult } from '../types/prompt'
+import type { ProventraResult, MafGuardResult, MafGuardInfo } from '../types/prompt'
 
 export async function detectProventra(text: string, threshold: number = 0.5): Promise<ProventraResult> {
   const { data } = await apiClient.post('/proventra/detect', { text, threshold })
@@ -18,6 +18,11 @@ export async function detectWolfDefender(text: string, threshold: number = 0.5):
 
 export async function detectMafGuard(text: string, injectionThreshold: number = 0.5, harmfulThreshold: number = injectionThreshold): Promise<MafGuardResult> {
   const { data } = await apiClient.post('/mafguard/detect', { text, injection_threshold: injectionThreshold, harmful_threshold: harmfulThreshold })
+  return data
+}
+
+export async function getMafGuardInfo(): Promise<MafGuardInfo> {
+  const { data } = await apiClient.get('/mafguard/info')
   return data
 }
 

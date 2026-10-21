@@ -19,14 +19,16 @@ export default function AlertsPage() {
   const status = params.get('status') ?? 'active'
   const severity = params.get('severity') ?? ''
   const days = Number(params.get('days') ?? 30)
+  const rule = params.get('rule') ?? ''
   const [q, setQ] = useState(params.get('q') ?? '')
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<number | null>(Number(params.get('id')) || null)
 
   const { data, error, loading, reload, setData } = useLoad(() => govApi.alerts({
     status: status === 'active' ? ['open', 'acknowledged'] : status === 'all' ? [] : [status as AlertStatus],
-    severity: severity ? [severity] : [], q: params.get('q') ?? undefined, days, offset, limit: PAGE,
-  }), [status, severity, days, params.get('q'), offset])
+    severity: severity ? [severity] : [], q: params.get('q') ?? undefined, rule_id: rule || undefined, days, offset,
+    limit: PAGE,
+  }), [status, severity, days, params.get('q'), rule, offset])
 
   const set = (key: string, value: string) => {
     const next = new URLSearchParams(params)
@@ -57,6 +59,10 @@ export default function AlertsPage() {
         <select id="al-days" value={days} onChange={e => set('days', e.target.value)} className="gov-select">
           {[1, 7, 30, 90, 365].map(d => <option key={d} value={d}>{t('gov.alerts.lastDays', { n: d })}</option>)}
         </select>
+        {rule && (
+          <button type="button" onClick={() => set('rule', '')} className="badge-info gov-badge"
+            aria-label={t('gov.alerts.clearRule')}>{rule} ×</button>
+        )}
         <label htmlFor="al-q" className="sr-only">{t('gov.alerts.search')}</label>
         <input id="al-q" value={q} onChange={e => setQ(e.target.value)} placeholder={t('gov.alerts.search')}
           className="input-field max-w-xs py-2 text-sm" />

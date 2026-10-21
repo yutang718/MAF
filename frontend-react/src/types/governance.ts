@@ -201,3 +201,84 @@ export interface Overview {
   recent_alerts: AlertItem[]
   connectors: Pick<ConnectorInfo, 'id' | 'kind' | 'name' | 'enabled' | 'last_status' | 'last_run_at' | 'running'>[]
 }
+
+// ─── Security posture ─────────────────────────────────────────────────────────
+
+export type PostureStatus = CheckStatus | 'no_source'
+
+export interface PostureItem {
+  code: string
+  type: 'check' | 'rule'
+  id: string
+  title: L10n
+  severity: Severity
+  status: PostureStatus
+  sla: boolean
+  summary: L10n | null
+  result_ids: number[]
+  open: number
+  overdue: number
+  open_by_severity: Partial<Record<Severity, number>>
+  new: number
+  resolved: number
+  oldest_days: number | null
+}
+
+export interface PostureDomain {
+  id: string
+  source: string
+  name: L10n
+  items: PostureItem[]
+  failing: number
+  open: number
+  overdue: number
+}
+
+export interface PostureSummary {
+  period_days: number
+  domains: PostureDomain[]
+  totals: Partial<Record<PostureStatus | 'open' | 'overdue' | 'new' | 'resolved', number>>
+  sla: Record<string, number>
+}
+
+export interface FindingItem {
+  id: number
+  key: string
+  label: string
+  severity: Severity
+  exploited: boolean
+  data: Record<string, unknown>
+  first_seen: string
+  last_seen: string
+  resolved_at: string | null
+  due_at: string
+  overdue: boolean
+  age_days: number
+  reopened: number
+}
+
+export interface SlaRow {
+  sla_days: number
+  resolved: number
+  within_sla_pct: number | null
+  mttr_days: number | null
+  open: number
+  open_overdue: number
+}
+
+export interface SlaMetrics {
+  window_days: number
+  by_severity: Record<'exploited' | Severity, SlaRow>
+  trend: { at: string; open: number | null }[]
+}
+
+export interface NotifySettings {
+  enabled: boolean
+  weekday: number
+  hour: number
+  timezone: string
+  base_url: string
+  realtime_critical: boolean
+  webhook_set: boolean
+  state: { last_sent_at: string | null; last_error: string }
+}

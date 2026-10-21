@@ -6,7 +6,8 @@ import PIIDetectionPage from './pages/PIIDetectionPage'
 import IslamicCompliancePage from './pages/IslamicCompliancePage'
 import { GovAuthProvider } from './governance/auth'
 import GovernanceLayout from './governance/GovernanceLayout'
-import OverviewPage from './governance/pages/OverviewPage'
+import PosturePage from './governance/pages/PosturePage'
+import SettingsPage from './governance/pages/SettingsPage'
 import FrameworkPage from './governance/pages/FrameworkPage'
 import ControlPage from './governance/pages/ControlPage'
 import ChecksPage from './governance/pages/ChecksPage'
@@ -24,7 +25,7 @@ function App() {
         <Route path="/pii-detection" element={<PIIDetectionPage />} />
         <Route path="/islamic-compliance" element={<IslamicCompliancePage />} />
         <Route path="/governance" element={<GovAuthProvider><GovernanceLayout /></GovAuthProvider>}>
-          <Route index element={<OverviewPage />} />
+          <Route index element={<PosturePage />} />
           <Route path="frameworks" element={<FrameworkPage />} />
           <Route path="frameworks/:fw" element={<FrameworkPage />} />
           <Route path="frameworks/:fw/controls/:cid" element={<ControlPage />} />
@@ -32,6 +33,7 @@ function App() {
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="exceptions" element={<ExceptionsPage />} />
           <Route path="connectors" element={<ConnectorsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
       </Routes>

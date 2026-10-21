@@ -4,9 +4,8 @@ import { errorMessage } from '../../api/client'
 import { useTranslation } from '../../i18n/context'
 import type { ConnectorField, ConnectorInfo, ConnectorType } from '../../types/governance'
 import { useGovAuth } from '../authState'
-import { ErrorPanel, Field, Loading, PageHeader } from '../ui'
+import { ErrorPanel, Field, Loading, PageHeader, RunStatus } from '../ui'
 import { formatAgo, formatTime, useL10n, useLoad } from '../hooks'
-import { RunStatus } from './OverviewPage'
 
 export default function ConnectorsPage() {
   const { t } = useTranslation()

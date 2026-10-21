@@ -14,12 +14,13 @@ export default function GovernanceLayout() {
   if (!user) return <SignIn />
 
   const links = [
-    { to: '/governance', label: t('gov.nav.overview'), end: true },
-    { to: '/governance/frameworks', label: t('gov.nav.frameworks') },
-    { to: '/governance/checks', label: t('gov.nav.checks') },
+    { to: '/governance', label: t('gov.nav.posture'), end: true },
     { to: '/governance/alerts', label: t('gov.nav.alerts') },
     { to: '/governance/exceptions', label: t('gov.nav.exceptions') },
     { to: '/governance/connectors', label: t('gov.nav.connectors') },
+    { to: '/governance/frameworks', label: t('gov.nav.frameworks') },
+    { to: '/governance/checks', label: t('gov.nav.checks') },
+    ...(can('admin') ? [{ to: '/governance/settings', label: t('gov.nav.settings') }] : []),
     ...(can('auditor') ? [{ to: '/governance/admin', label: t('gov.nav.admin') }] : []),
   ]
 

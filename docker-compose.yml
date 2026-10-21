@@ -16,6 +16,7 @@ services:
       - PYTHONWARNINGS=ignore::UserWarning
       - HF_HOME=/app/model_cache
       - MAF_GUARD_MODEL_PATH=${MAF_GUARD_MODEL_PATH:-yutang718/evyd-defender}   # private Hub repo (needs HUGGINGFACE_TOKEN); or a mounted local dir
+      - GOVERN_URL=http://governance-api:8100   # security governance service, proxied under /api/v1/governance
     volumes:
       - model_cache:/app/model_cache
       - ./models:/app/trained_models:ro   # optional: MAF_GUARD_MODEL_PATH=/app/trained_models/<dir> for a local checkpoint
@@ -31,5 +32,54 @@ services:
       retries: 10
       start_period: 900s   # first start downloads ~3 GB of model weights
 
+  # ─── Security governance (M365 / GitHub / GitLab / Archery compliance) ─────
+  # MAF forwards /api/v1/governance/* here, so the UI stays on one origin.
+  # Opt-in: docker compose --profile governance up -d
+  governance-db:
+    profiles: [governance]
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=govern
+      - POSTGRES_USER=govern
+      - POSTGRES_PASSWORD=${GOVERN_DB_PASSWORD:-}
+    volumes:
+      - governance_db:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U govern -d govern"]
+      interval: 10s
+      retries: 10
+
+  governance-api:
+    profiles: [governance]
+    build: ./compliance
+    env_file: [{path: compliance/.env, required: false}]
+    environment:
+      - GOVERN_DATABASE_URL=postgresql+psycopg://govern:${GOVERN_DB_PASSWORD:-}@governance-db:5432/govern
+      - GOVERN_MAF_URL=http://maf:8000
+    volumes:
+      - governance_evidence:/srv/evidence
+    depends_on:
+      governance-db: {condition: service_healthy}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/api/v1/governance/health')"]
+      interval: 30s
+      retries: 5
+
+  governance-worker:
+    profiles: [governance]
+    build: ./compliance
+    command: ["python", "-m", "govern.worker"]
+    env_file: [{path: compliance/.env, required: false}]
+    environment:
+      - GOVERN_DATABASE_URL=postgresql+psycopg://govern:${GOVERN_DB_PASSWORD:-}@governance-db:5432/govern
+      - GOVERN_MAF_URL=http://maf:8000
+    depends_on:
+      governance-api: {condition: service_healthy}  # API runs the migrations first
+    restart: unless-stopped
+
 volumes:
   model_cache:
+  governance_db:
+  governance_evidence:

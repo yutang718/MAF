@@ -1,4 +1,7 @@
+import { governanceZh } from './governance'
+
 const zh: Record<string, string> = {
+  ...governanceZh,
   // ─── AppLayout ────────────────────────────────────────────────────────────────
   'nav.overview': '概览',
   'nav.promptAnalysis': '提示词分析',
@@ -10,6 +13,8 @@ const zh: Record<string, string> = {
   'appearance.dark': '深色',
   'appearance.light': '浅色',
   'appearance.matchTheme': '跟随主题',
+  'appearance.cjkFont': '中文字体',
+  'appearance.cjkHint': '所有中文文字都使用这里选的字体，与主题和西文字体无关。',
   'appearance.hint': '每个主题自带专属字体，可在此另选覆盖；投影演示推荐「旷野」主题。',
   'nav.platformName': 'AI 安全平台',
   'nav.models': '模型',
@@ -298,6 +303,10 @@ const zh: Record<string, string> = {
   'pii.sampleInputs': '示例输入',
   'pii.maskedOutput': '脱敏输出',
   'pii.entitiesFound': '发现实体',
+  'pii.risk': '风险：{level}',
+  'pii.risk.low': '低',
+  'pii.risk.medium': '中',
+  'pii.risk.high': '高',
   'pii.awaiting': '等待输入',
 
   // ─── IslamicCompliancePage ────────────────────────────────────────────────────

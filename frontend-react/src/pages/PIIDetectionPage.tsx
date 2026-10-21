@@ -68,12 +68,21 @@ export default function PIIDetectionPage() {
   )
 }
 
+const RISK_BADGE: Record<string, string> = { low: 'badge-safe', medium: 'badge-warn', high: 'badge-danger' }
+
 function PIIResult({ result }: { result: PIIDetectionResult }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <div className="panel border-cyber-accent/15">
-        <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('pii.maskedOutput')}</span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-cyber-muted uppercase tracking-wider">{t('pii.maskedOutput')}</span>
+          {result.analysis && (
+            <span className={RISK_BADGE[result.analysis.risk_level] ?? 'badge-info'}>
+              {t('pii.risk', { level: t(`pii.risk.${result.analysis.risk_level}`) })}
+            </span>
+          )}
+        </div>
         <p className="text-sm font-mono text-cyber-text leading-relaxed mt-2">{result.masked_text}</p>
       </div>
 
@@ -87,7 +96,7 @@ function PIIResult({ result }: { result: PIIDetectionResult }) {
               <div key={i} className="flex items-center justify-between py-1.5 border-b border-cyber-border/30 last:border-0">
                 <div className="flex items-center gap-2">
                   <span className="badge-warn">{e.type}</span>
-                  <span className="text-sm font-mono text-cyber-text">{e.value}</span>
+                  <span className="text-sm font-mono text-cyber-text break-all">{e.text}</span>
                 </div>
                 <span className="text-xs text-cyber-muted font-mono">{(e.score * 100).toFixed(0)}%</span>
               </div>

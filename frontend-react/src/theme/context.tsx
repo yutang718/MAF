@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
-import { THEMES, FONTS, DEFAULT_THEME, DEFAULT_FONT, THEME_FONT, CJK_FONT, type Theme, type FontPairing } from './tokens'
+import { THEMES, FONTS, CJK_FONTS, DEFAULT_THEME, DEFAULT_FONT, DEFAULT_CJK_FONT, THEME_FONT, type Theme, type FontPairing, type CJKFont } from './tokens'
 
 interface ThemeContextValue {
   theme: Theme
@@ -7,10 +7,14 @@ interface ThemeContextValue {
   font: FontPairing
   /** The raw choice, THEME_FONT when following the theme */
   fontId: string
+  /** Chinese typeface, independent of the theme and Latin pairing */
+  cjkFont: CJKFont
   setThemeId: (id: string) => void
   setFontId: (id: string) => void
+  setCjkFontId: (id: string) => void
   themes: Theme[]
   fonts: FontPairing[]
+  cjkFonts: CJKFont[]
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
@@ -39,31 +43,34 @@ function loadStylesheet(id: string, href: string) {
   if (link.href !== href) link.href = href
 }
 
-function apply(theme: Theme, font: FontPairing) {
+function apply(theme: Theme, font: FontPairing, cjk: CJKFont) {
   const root = document.documentElement
   Object.entries(theme.colors).forEach(([key, rgb]) => root.style.setProperty(`--c-${key}`, rgb))
   root.style.setProperty('--grid-alpha', String(theme.gridAlpha))
   root.style.setProperty('--glow-alpha', String(theme.glowAlpha))
-  root.style.setProperty('--font-sans', `${font.sans}, ${CJK_FONT.family}, system-ui, sans-serif`)
-  root.style.setProperty('--font-mono', `${font.mono}, ${CJK_FONT.family}, ui-monospace, monospace`)
+  root.style.setProperty('--font-sans', `${font.sans}, ${cjk.family}, system-ui, sans-serif`)
+  root.style.setProperty('--font-mono', `${font.mono}, ${cjk.family}, ui-monospace, monospace`)
   root.dataset.theme = theme.id
   root.dataset.mode = theme.mode
   root.style.colorScheme = theme.mode
   loadStylesheet('app-font-link', font.href)
   // unicode-range subsets mean only glyphs actually on screen are fetched
-  loadStylesheet('app-cjk-font-link', CJK_FONT.href)
+  if (cjk.href) loadStylesheet('app-cjk-font-link', cjk.href)
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeIdState] = useState(() => stored('app-theme', DEFAULT_THEME))
   const [fontId, setFontIdState] = useState(() => stored('app-font', DEFAULT_FONT))
+  const [cjkFontId, setCjkFontIdState] = useState(() => stored('app-cjk-font', DEFAULT_CJK_FONT))
 
   const theme = THEMES.find(t => t.id === themeId) ?? THEMES[0]
   const font = FONTS.find(f => f.id === (fontId === THEME_FONT ? theme.font : fontId))
     ?? FONTS.find(f => f.id === theme.font)
     ?? FONTS[0]
 
-  useEffect(() => { apply(theme, font) }, [theme, font])
+  const cjkFont = CJK_FONTS.find(f => f.id === cjkFontId) ?? CJK_FONTS[0]
+
+  useEffect(() => { apply(theme, font, cjkFont) }, [theme, font, cjkFont])
 
   const setThemeId = useCallback((id: string) => {
     setThemeIdState(id)
@@ -75,8 +82,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     persist('app-font', id)
   }, [])
 
+  const setCjkFontId = useCallback((id: string) => {
+    setCjkFontIdState(id)
+    persist('app-cjk-font', id)
+  }, [])
+
   return (
-    <ThemeContext.Provider value={{ theme, font, fontId, setThemeId, setFontId, themes: THEMES, fonts: FONTS }}>
+    <ThemeContext.Provider value={{ theme, font, fontId, cjkFont, setThemeId, setFontId, setCjkFontId, themes: THEMES, fonts: FONTS, cjkFonts: CJK_FONTS }}>
       {children}
     </ThemeContext.Provider>
   )

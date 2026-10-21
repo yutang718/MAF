@@ -1,0 +1,66 @@
+# HIPAA Security Rule, 45 CFR Part 164 Subpart C, as currently in force.
+# Leaf requirements: implementation specifications, or the standard itself when
+# it has none. (R) required, (A) addressable.
+# If HHS finalises the January 2025 proposed amendments, revisit this file:
+# they drop the required/addressable split and add explicit controls.
+# Rows: [citation, group, English title, Chinese title]
+id: hipaa
+name: {en: "HIPAA Security Rule", zh: "HIPAA 安全规则"}
+description:
+  en: "Administrative, physical and technical safeguards for ePHI. Many requirements are procedural and need documented evidence."
+  zh: "针对电子受保护健康信息（ePHI）的行政、物理和技术保障措施。很多要求属于流程类，需要书面证据。"
+groups:
+  - [admin, "Administrative safeguards (§164.308)", "行政保障措施（§164.308）"]
+  - [physical, "Physical safeguards (§164.310)", "物理保障措施（§164.310）"]
+  - [technical, "Technical safeguards (§164.312)", "技术保障措施（§164.312）"]
+  - [org, "Organizational requirements (§164.314)", "组织要求（§164.314）"]
+  - [docs, "Policies, procedures and documentation (§164.316)", "政策、程序与文档（§164.316）"]
+controls:
+  - ["164.308(a)(1)(ii)(A)", admin, "Risk analysis (R)", "风险分析（必需）"]
+  - ["164.308(a)(1)(ii)(B)", admin, "Risk management (R)", "风险管理（必需）"]
+  - ["164.308(a)(1)(ii)(C)", admin, "Sanction policy (R)", "惩处政策（必需）"]
+  - ["164.308(a)(1)(ii)(D)", admin, "Information system activity review (R)", "信息系统活动审查（必需）"]
+  - ["164.308(a)(2)", admin, "Assigned security responsibility (R)", "指定安全负责人（必需）"]
+  - ["164.308(a)(3)(ii)(A)", admin, "Authorization and/or supervision (A)", "授权和/或监督（可选实施）"]
+  - ["164.308(a)(3)(ii)(B)", admin, "Workforce clearance procedure (A)", "员工审查程序（可选实施）"]
+  - ["164.308(a)(3)(ii)(C)", admin, "Termination procedures (A)", "离职程序（可选实施）"]
+  - ["164.308(a)(4)(ii)(A)", admin, "Isolating health care clearinghouse functions (R)", "隔离医疗信息交换所职能（必需）"]
+  - ["164.308(a)(4)(ii)(B)", admin, "Access authorization (A)", "访问授权（可选实施）"]
+  - ["164.308(a)(4)(ii)(C)", admin, "Access establishment and modification (A)", "访问权限的建立与变更（可选实施）"]
+  - ["164.308(a)(5)(ii)(A)", admin, "Security reminders (A)", "安全提醒（可选实施）"]
+  - ["164.308(a)(5)(ii)(B)", admin, "Protection from malicious software (A)", "防范恶意软件（可选实施）"]
+  - ["164.308(a)(5)(ii)(C)", admin, "Log-in monitoring (A)", "登录监控（可选实施）"]
+  - ["164.308(a)(5)(ii)(D)", admin, "Password management (A)", "密码管理（可选实施）"]
+  - ["164.308(a)(6)(ii)", admin, "Security incident response and reporting (R)", "安全事件响应与报告（必需）"]
+  - ["164.308(a)(7)(ii)(A)", admin, "Data backup plan (R)", "数据备份计划（必需）"]
+  - ["164.308(a)(7)(ii)(B)", admin, "Disaster recovery plan (R)", "灾难恢复计划（必需）"]
+  - ["164.308(a)(7)(ii)(C)", admin, "Emergency mode operation plan (R)", "应急运行计划（必需）"]
+  - ["164.308(a)(7)(ii)(D)", admin, "Testing and revision procedures (A)", "测试与修订程序（可选实施）"]
+  - ["164.308(a)(7)(ii)(E)", admin, "Applications and data criticality analysis (A)", "应用与数据关键性分析（可选实施）"]
+  - ["164.308(a)(8)", admin, "Evaluation (R)", "定期评估（必需）"]
+  - ["164.308(b)(1)", admin, "Business associate contracts and other arrangements (R)", "业务伙伴合同及其他安排（必需）"]
+  - ["164.310(a)(2)(i)", physical, "Contingency operations (A)", "应急运行（可选实施）"]
+  - ["164.310(a)(2)(ii)", physical, "Facility security plan (A)", "设施安全计划（可选实施）"]
+  - ["164.310(a)(2)(iii)", physical, "Access control and validation procedures (A)", "访问控制与验证程序（可选实施）"]
+  - ["164.310(a)(2)(iv)", physical, "Maintenance records (A)", "维修记录（可选实施）"]
+  - ["164.310(b)", physical, "Workstation use (R)", "工作站使用（必需）"]
+  - ["164.310(c)", physical, "Workstation security (R)", "工作站安全（必需）"]
+  - ["164.310(d)(2)(i)", physical, "Disposal (R)", "处置（必需）"]
+  - ["164.310(d)(2)(ii)", physical, "Media re-use (R)", "介质再利用（必需）"]
+  - ["164.310(d)(2)(iii)", physical, "Accountability (A)", "设备追踪记录（可选实施）"]
+  - ["164.310(d)(2)(iv)", physical, "Data backup and storage (A)", "数据备份与存储（可选实施）"]
+  - ["164.312(a)(2)(i)", technical, "Unique user identification (R)", "唯一用户标识（必需）"]
+  - ["164.312(a)(2)(ii)", technical, "Emergency access procedure (R)", "紧急访问程序（必需）"]
+  - ["164.312(a)(2)(iii)", technical, "Automatic logoff (A)", "自动注销（可选实施）"]
+  - ["164.312(a)(2)(iv)", technical, "Encryption and decryption (A)", "加密与解密（可选实施）"]
+  - ["164.312(b)", technical, "Audit controls (R)", "审计控制（必需）"]
+  - ["164.312(c)(2)", technical, "Mechanism to authenticate ePHI (A)", "ePHI 完整性验证机制（可选实施）"]
+  - ["164.312(d)", technical, "Person or entity authentication (R)", "人员或实体鉴别（必需）"]
+  - ["164.312(e)(2)(i)", technical, "Transmission integrity controls (A)", "传输完整性控制（可选实施）"]
+  - ["164.312(e)(2)(ii)", technical, "Transmission encryption (A)", "传输加密（可选实施）"]
+  - ["164.314(a)", org, "Business associate contracts (R)", "业务伙伴合同要求（必需）"]
+  - ["164.314(b)", org, "Requirements for group health plans (R)", "团体健康计划要求（必需）"]
+  - ["164.316(a)", docs, "Policies and procedures (R)", "政策与程序（必需）"]
+  - ["164.316(b)(2)(i)", docs, "Documentation retained six years (R)", "文档保存六年（必需）"]
+  - ["164.316(b)(2)(ii)", docs, "Documentation available to those responsible (R)", "文档对相关负责人可用（必需）"]
+  - ["164.316(b)(2)(iii)", docs, "Documentation reviewed and updated periodically (R)", "定期审查和更新文档（必需）"]

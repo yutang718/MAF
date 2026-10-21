@@ -19,6 +19,10 @@ A comprehensive security framework for LLM applications, providing content filte
    - Response Validation
    - Model Output Filtering
 
+4. **Security Governance** (`compliance/`)
+   - Microsoft 365 / GitHub / GitLab / Archery collection, ISO 27001 · NIST CSF · HIPAA readiness, risk alerts
+   - Separate service; see [compliance/README.md](compliance/README.md)
+
 ## Features
 
 - Prompt Injection Detection

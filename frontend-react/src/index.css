@@ -246,6 +246,28 @@
   .table-row-hover {
     @apply transition-colors duration-150 hover:bg-cyber-accent/[0.04];
   }
+
+  /* Security governance: status chips sit inside dense tables, so smaller and not shouted. */
+  .gov-badge {
+    @apply px-2 py-0.5 text-xs normal-case tracking-normal font-semibold whitespace-nowrap;
+  }
+  .gov-badge-muted {
+    @apply badge bg-cyber-muted/[0.08] text-cyber-muted border border-cyber-border/60;
+  }
+  .gov-badge-solid {
+    @apply bg-cyber-danger text-cyber-bg border-cyber-danger;
+  }
+  .gov-subnav-link {
+    @apply px-3 py-1.5 rounded-md text-sm font-medium text-cyber-muted whitespace-nowrap transition-colors
+           hover:text-cyber-text hover:bg-cyber-accent/[0.05];
+  }
+  .gov-subnav-link-active {
+    @apply text-cyber-accent bg-cyber-accent/[0.08];
+  }
+  .gov-select {
+    @apply bg-cyber-bg/80 border border-cyber-border/80 rounded-lg px-3 py-2 text-sm text-cyber-text
+           focus:outline-none focus:border-cyber-accent/40 focus:ring-1 focus:ring-cyber-accent/20;
+  }
 }
 
 /* Respect the OS reduced-motion setting. */

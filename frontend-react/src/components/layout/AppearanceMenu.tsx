@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { CheckIcon } from '@heroicons/react/20/solid'
 import { useTheme } from '../../theme/context'
-import { loadFontPreviews } from '../../theme/fontPreviews'
+import { loadFontPreviews, loadCjkPreviews } from '../../theme/fontPreviews'
 import { useTranslation } from '../../i18n/context'
 import { THEME_FONT, type Theme, type FontPairing } from '../../theme/tokens'
 
@@ -10,7 +10,7 @@ import { THEME_FONT, type Theme, type FontPairing } from '../../theme/tokens'
  * Each theme ships with the font it was designed with; "Match theme" follows it.
  */
 export default function AppearanceMenu() {
-  const { theme, font, fontId, setThemeId, setFontId, themes, fonts } = useTheme()
+  const { theme, font, fontId, cjkFont, setThemeId, setFontId, setCjkFontId, themes, fonts, cjkFonts } = useTheme()
   const { t, lang } = useTranslation()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -18,6 +18,7 @@ export default function AppearanceMenu() {
   useEffect(() => {
     if (!open) return
     loadFontPreviews(fonts, [...themes.map(th => th.name), t('appearance.matchTheme')])
+    loadCjkPreviews(cjkFonts)
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
@@ -28,7 +29,7 @@ export default function AppearanceMenu() {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, fonts, themes, t])
+  }, [open, fonts, themes, cjkFonts, t])
 
   const label = (en: string, zh: string) => (lang === 'zh' ? zh : en)
   const fontById = (id: string) => fonts.find(f => f.id === id) ?? font
@@ -102,7 +103,7 @@ export default function AppearanceMenu() {
             <SectionTitle>{t('appearance.font')}</SectionTitle>
             <div className="grid grid-cols-2 gap-1.5">
               <FontOption
-                font={themeFont}
+                family={fontStack(themeFont)}
                 active={followsTheme}
                 name={t('appearance.matchTheme')}
                 detail={label(themeFont.name, themeFont.nameZh)}
@@ -111,7 +112,7 @@ export default function AppearanceMenu() {
               {fonts.map(f => (
                 <FontOption
                   key={f.id}
-                  font={f}
+                  family={fontStack(f)}
                   active={!followsTheme && f.id === font.id}
                   name={label(f.name, f.nameZh)}
                   detail={label(f.mood, f.moodZh)}
@@ -121,6 +122,27 @@ export default function AppearanceMenu() {
             </div>
             <p className="text-[12px] text-cyber-muted mt-2.5 leading-snug px-0.5">
               {t('appearance.hint')}
+            </p>
+          </section>
+
+          <div className="h-px bg-cyber-border/60" />
+
+          <section>
+            <SectionTitle>{t('appearance.cjkFont')}</SectionTitle>
+            <div className="grid grid-cols-2 gap-1.5">
+              {cjkFonts.map(f => (
+                <FontOption
+                  key={f.id}
+                  family={`${f.family}, system-ui, sans-serif`}
+                  active={f.id === cjkFont.id}
+                  name={f.nameZh}
+                  detail={lang === 'zh' ? f.moodZh : `${f.name} · ${f.mood}`}
+                  onSelect={() => setCjkFontId(f.id)}
+                />
+              ))}
+            </div>
+            <p className="text-[12px] text-cyber-muted mt-2.5 leading-snug px-0.5">
+              {t('appearance.cjkHint')}
             </p>
           </section>
         </div>
@@ -191,8 +213,8 @@ function ThemeCard({ theme, font, active, name, onSelect }: {
   )
 }
 
-function FontOption({ font, active, name, detail, onSelect }: {
-  font: FontPairing; active: boolean; name: string; detail: string; onSelect: () => void
+function FontOption({ family, active, name, detail, onSelect }: {
+  family: string; active: boolean; name: string; detail: string; onSelect: () => void
 }) {
   return (
     <button
@@ -206,7 +228,7 @@ function FontOption({ font, active, name, detail, onSelect }: {
     >
       <span
         className={`block text-[14px] font-semibold leading-tight pr-4 ${active ? 'text-cyber-accent' : 'text-cyber-text'}`}
-        style={{ fontFamily: fontStack(font) }}
+        style={{ fontFamily: family }}
       >
         {name}
       </span>

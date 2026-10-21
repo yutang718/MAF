@@ -1,4 +1,7 @@
+import { governanceEn } from './governance'
+
 const en: Record<string, string> = {
+  ...governanceEn,
   // ─── AppLayout ────────────────────────────────────────────────────────────────
   'nav.overview': 'Overview',
   'nav.promptAnalysis': 'Prompt Analysis',
@@ -10,6 +13,8 @@ const en: Record<string, string> = {
   'appearance.dark': 'Dark',
   'appearance.light': 'Light',
   'appearance.matchTheme': 'Match theme',
+  'appearance.cjkFont': 'Chinese typeface',
+  'appearance.cjkHint': 'Used for all Chinese text, whatever theme or typeface you pick.',
   'appearance.hint': 'Each theme ships with its own typeface. Pick another to override it; Field reads best on a projector.',
   'nav.platformName': 'AI Security Platform',
   'nav.models': 'Models',
@@ -298,6 +303,10 @@ const en: Record<string, string> = {
   'pii.sampleInputs': 'Sample Inputs',
   'pii.maskedOutput': 'Masked Output',
   'pii.entitiesFound': 'Entities Found',
+  'pii.risk': 'Risk: {level}',
+  'pii.risk.low': 'low',
+  'pii.risk.medium': 'medium',
+  'pii.risk.high': 'high',
   'pii.awaiting': 'Awaiting input',
 
   // ─── IslamicCompliancePage ────────────────────────────────────────────────────
